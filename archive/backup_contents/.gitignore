@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+env/
+venv/
+models_test/
+*.log
+train.log
+train.err
+.DS_Store
+# model checkpoints
+# keep models/ if you want to track checkpoints manually

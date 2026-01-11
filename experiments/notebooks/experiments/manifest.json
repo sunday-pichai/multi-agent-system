@@ -1,0 +1,10 @@
+{
+  "seed": 42,
+  "timestamp": "2026-01-11T13:58:13.603861",
+  "baseline": "experiments/demo_baseline.json",
+  "refined": "experiments/demo_refined.json",
+  "metrics_image": "experiments\\metrics_seed_42.png",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "python": "3.12.3 (tags/v3.12.3:f6650f9, Apr  9 2024, 14:05:25) [MSC v.1938 64 bit (AMD64)]",
+  "torch": "2.8.0+cpu"
+}
