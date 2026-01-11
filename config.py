@@ -34,11 +34,11 @@ GOALS: List[Tuple[int, int]] = [(9, 18), (10, 18)]
 STATE_SIZE: int = 4 + NUM_SHELVES * 4 + (NUM_AGENTS - 1) * 4
 ACTION_SIZE: int = 5
 HIDDEN: int = 512
-LR: float = 0.0005
+LR: float = 0.0003  # Slightly reduced learning rate for stability
 GAMMA: float = 0.99
 EPS_START: float = 1.0
-EPS_END: float = 0.05
-EPS_DECAY: float = 0.9995
+EPS_END: float = 0.05  # CHANGED: Don't go below 5% (was 0.05, keeping same)
+EPS_DECAY: float = 0.999995  # FIXED: Added extra 9! Was 0.9995 (way too fast!)
 BATCH_SIZE: int = 128
 TARGET_UPDATE: int = 500
 MEMORY_SIZE: int = 100000
@@ -56,6 +56,7 @@ def load_from_yaml(path: Optional[str] = None) -> None:
     """
     global GRID_W, GRID_H, CELL_SIZE, NUM_AGENTS, NUM_SHELVES, GOALS
     global LR, GAMMA, BATCH_SIZE, TARGET_UPDATE, MEMORY_SIZE, WARMUP_STEPS, SAVE_INTERVAL
+    global EPS_START, EPS_END, EPS_DECAY  # Added epsilon params
 
     cfg_path = Path(path) if path else Path('config.yaml')
     if not cfg_path.exists():
@@ -105,10 +106,16 @@ def load_from_yaml(path: Optional[str] = None) -> None:
         WARMUP_STEPS = int(training['warmup_steps'])
     if 'save_interval' in training:
         SAVE_INTERVAL = int(training['save_interval'])
+    # Added epsilon overrides
+    if 'eps_start' in training:
+        EPS_START = float(training['eps_start'])
+    if 'eps_end' in training:
+        EPS_END = float(training['eps_end'])
+    if 'eps_decay' in training:
+        EPS_DECAY = float(training['eps_decay'])
 
     # Update dependent derived values
     globals()['STATE_SIZE'] = 4 + NUM_SHELVES * 4 + (NUM_AGENTS - 1) * 4
     globals()['MODEL_PATHS'] = [f"dqn_agent_{i}.pth" for i in range(NUM_AGENTS)]
 
     logger.info("Loaded config overrides from %s", cfg_path)
-
