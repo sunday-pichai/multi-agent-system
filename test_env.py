@@ -1,4 +1,4 @@
-from rw import WarehouseEnv
+from env import WarehouseEnv
 
 env = WarehouseEnv(render=False)
 states = env.reset()
