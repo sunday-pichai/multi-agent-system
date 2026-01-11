@@ -7,7 +7,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 print('Running basic tests...')
-from tests import test_dqn, test_env, test_symmetry, test_verification, test_verification_quotient, test_refinement, test_replay, test_verify_refine_integration, test_viz  # noqa: E402
+from tests import test_dqn, test_env, test_symmetry, test_verification, test_verification_quotient, test_refinement, test_replay, test_verify_refine_integration  # noqa: E402
 
 if __name__ == '__main__':
     test_dqn.test_dqn_forward_shape()

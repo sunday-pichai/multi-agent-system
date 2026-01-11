@@ -12,7 +12,7 @@ import torch
 
 from eval_utils import set_seed
 from main import run_verify_refine
-from viz import plot_refinement_metrics
+# plotting removed per user request
 from env import WarehouseEnv
 from dqn import DQN
 
@@ -66,13 +66,11 @@ def run_experiment(save_dir: str = 'experiments/models', seed: int = 42, iterati
             writer.writerow(['timestamp', 'seed', 'iterations', 'refine_steps', 'pre_rate', 'post_rate', 'delta'])
         writer.writerow([int(time.time()), seed, iterations, refine_steps, pre_rate, post_rate, post_rate - pre_rate])
 
-    # create a small metrics plot (only pre/post available here)
+    # metrics image generation removed (plot_refinement_metrics disabled per user request)
     metrics_path = results_dir / f'metrics_seed_{seed}.png'
-    plot_refinement_metrics([0.0, 0.0], [pre_rate, post_rate], save_path=str(metrics_path), title='Refinement: pre vs post')
 
     print(f'Experiment complete. pre_rate={pre_rate:.2f}%, post_rate={post_rate:.2f}%')
     print('Results saved to', out)
-    print('Metrics image saved to', metrics_path)
 
     return {'seed': seed, 'pre_rate': pre_rate, 'post_rate': post_rate}
 

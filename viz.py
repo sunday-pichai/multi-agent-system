@@ -1,11 +1,6 @@
-"""Visualization helpers: trajectory plots, collision heatmaps, and refinement metrics.
+"""viz module removed — plotting disabled per user request."""
 
-Functions accept the counterexample traces produced by `verify_on_quotient` (list of timesteps -> list of (x,y) tuples per agent) and the environment for grid sizes.
-"""
-from typing import List, Tuple
-import os
-import numpy as np
-from matplotlib import pyplot as plt
+raise ModuleNotFoundError("viz module has been removed from this project")
 
 
 def plot_trajectories(trace: List[List[Tuple[int, int]]], env, save_path: str = None, title: str = "Trajectories"):
@@ -49,7 +44,9 @@ def plot_trajectories(trace: List[List[Tuple[int, int]]], env, save_path: str = 
     plt.tight_layout()
 
     if save_path:
-        os.makedirs(os.path.dirname(save_path), exist_ok=True)
+        dirpath = os.path.dirname(save_path)
+        if dirpath:
+            os.makedirs(dirpath, exist_ok=True)
         fig.savefig(save_path)
         plt.close(fig)
     else:
@@ -89,7 +86,9 @@ def plot_collision_heatmap(trace: List[List[Tuple[int, int]]], env, save_path: s
         ax.scatter(x, ay, marker='X', color='black', s=80)
 
     if save_path:
-        os.makedirs(os.path.dirname(save_path), exist_ok=True)
+        dirpath = os.path.dirname(save_path)
+        if dirpath:
+            os.makedirs(dirpath, exist_ok=True)
         fig.savefig(save_path)
         plt.close(fig)
     else:
@@ -115,7 +114,9 @@ def plot_refinement_metrics(losses: List[float], collision_rates: List[float], s
     plt.tight_layout()
 
     if save_path:
-        os.makedirs(os.path.dirname(save_path), exist_ok=True)
+        dirpath = os.path.dirname(save_path)
+        if dirpath:
+            os.makedirs(dirpath, exist_ok=True)
         fig.savefig(save_path)
         plt.close(fig)
     else:

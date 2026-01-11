@@ -4,7 +4,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import torch
 from eval_utils import set_seed
 from main import run_verify_refine
-from viz import plot_refinement_metrics
+# plotting removed per user request (viz module deleted)
 from env import WarehouseEnv
 from dqn import DQN
 

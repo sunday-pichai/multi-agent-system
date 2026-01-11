@@ -1,11 +1,6 @@
-"""Visualization helpers: trajectory plots, collision heatmaps, and refinement metrics.
+"""viz module removed — plotting disabled per user request."""
 
-Functions accept the counterexample traces produced by `verify_on_quotient` (list of timesteps -> list of (x,y) tuples per agent) and the environment for grid sizes.
-"""
-from typing import List, Tuple
-import os
-import numpy as np
-from matplotlib import pyplot as plt
+raise ModuleNotFoundError("viz module has been removed from this project")
 
 
 def plot_trajectories(trace: List[List[Tuple[int, int]]], env, save_path: str = None, title: str = "Trajectories"):

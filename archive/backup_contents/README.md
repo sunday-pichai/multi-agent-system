@@ -9,7 +9,7 @@ A compact research-style project demonstrating partial symmetry reduction, bound
 - Symmetry detection heuristic and quotient-model checks (`symmetry_reduction.py`)
 - Lightweight falsifiers and deterministic verifiers (`verification.py`) with quotient-based checks
 - Counterexample extraction and targeted fine-tuning (`refinement.py`) using prioritized replay (`replay.py`)
-- Visualization helpers for trajectories, heatmaps and refinement metrics (`viz.py`)
+
 - Test harness (`tests/run_tests.py`) for easy CI-friendly testing without pytest
 
 ## Quick start
@@ -59,7 +59,7 @@ tensorboard --logdir models/runs
 - `verification.py` — Falsifiers + quotient-based verification
 - `refinement.py` — Counterexample extraction + targeted fine-tuning
 - `replay.py` — Replay buffers (basic and prioritized)
-- `viz.py` — Plots for trajectories, heatmaps and metrics
+
 - `tests/` — Small unit tests and integration checks
 
 ## Reproducibility and experiments

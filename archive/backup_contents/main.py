@@ -220,16 +220,8 @@ def run_verify_refine(args):
             tup = (c['agent'], c['state'], c['action'], c['reward'], c['next_state'], c['done'])
             replay.push(tup, priority=10.0)
 
-        # save visualizations for this counterexample
-        try:
-            from viz import plot_trajectories, plot_collision_heatmap
-            plot_dir = Path(args.save_dir) / 'runs' / f'iter_{it+1}'
-            plot_dir.mkdir(parents=True, exist_ok=True)
-            if res.get('counterexample'):
-                plot_trajectories(res['counterexample'], env, save_path=str(plot_dir / 'trajectories.png'), title=f'Iter {it+1} Trajectories')
-                plot_collision_heatmap(res['counterexample'], env, save_path=str(plot_dir / 'heatmap.png'), title=f'Iter {it+1} Heatmap')
-        except Exception as e:
-            logger.warning('Failed to create visualizations: %s', e)
+        # visualizations removed per user request (formerly used viz.py)
+        # plotting disabled — no-op
 
         # fine-tune and log
         summary = fine_tune_on_cases(dqns, cases=None, steps=getattr(args, 'refine_steps', 200), batch_size=getattr(args, 'refine_batch', 16), replay=replay, device=device)
