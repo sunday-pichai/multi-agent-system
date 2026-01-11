@@ -59,6 +59,17 @@ def run_train(args):
     logger = logging.getLogger('warehouse')
     env = WarehouseEnv(render=args.render)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    
+    logger.info("Using device: %s", device)
+
+    # Setup TensorBoard writer
+    writer = None
+    try:
+        from torch.utils.tensorboard import SummaryWriter
+        writer = SummaryWriter(log_dir=Path(args.save_dir) / 'runs')
+        logger.info("TensorBoard logging enabled at %s", Path(args.save_dir) / 'runs')
+    except Exception as e:
+        logger.warning("TensorBoard not available: %s", e)
 
     dqns = [DQN(len(env.get_state(env.robots[0])), ACTION_SIZE).to(device) for _ in range(NUM_AGENTS)]
     targets = [DQN(len(env.get_state(env.robots[0])), ACTION_SIZE).to(device) for _ in range(NUM_AGENTS)]
@@ -83,73 +94,99 @@ def run_train(args):
 
     logger.info("Starting training: episodes=%d steps/ep=%d", args.episodes, args.steps_per_episode)
 
-    for ep in range(args.episodes):
-        states = env.reset()
-        done = False
-        episode_steps = 0
-        ep_rewards = [0.0] * NUM_AGENTS
+    try:
+        for ep in range(args.episodes):
+            states = env.reset()
+            done = False
+            episode_steps = 0
+            ep_rewards = [0.0] * NUM_AGENTS
 
-        while not done and episode_steps < args.steps_per_episode:
-            actions = []
-            for i, state in enumerate(states):
-                if random.random() < epsilon:
-                    a = random.randrange(ACTION_SIZE)
-                else:
-                    q = dqns[i](torch.from_numpy(np.array(state, dtype=np.float32)).unsqueeze(0).to(device))
-                    a = q.argmax().item()
-                actions.append(a)
-                memories[i].append((state.copy(), a, 0.0, None, False))
+            while not done and episode_steps < args.steps_per_episode:
+                actions = []
+                for i, state in enumerate(states):
+                    if random.random() < epsilon:
+                        a = random.randrange(ACTION_SIZE)
+                    else:
+                        q = dqns[i](torch.from_numpy(np.array(state, dtype=np.float32)).unsqueeze(0).to(device))
+                        a = q.argmax().item()
+                    actions.append(a)
+                    memories[i].append((state.copy(), a, 0.0, None, False))
 
-            next_states, rewards, done, cols, _ = env.step(actions)
-            episode_steps += 1
-            total_steps += 1
+                next_states, rewards, done, cols, _ = env.step(actions)
+                episode_steps += 1
+                total_steps += 1
 
-            for i in range(NUM_AGENTS):
-                s, a, _, _, _ = memories[i][-1]
-                memories[i][-1] = (s, a, rewards[i], next_states[i].copy(), done)
-                ep_rewards[i] += rewards[i]
+                for i in range(NUM_AGENTS):
+                    s, a, _, _, _ = memories[i][-1]
+                    memories[i][-1] = (s, a, rewards[i], next_states[i].copy(), done)
+                    ep_rewards[i] += rewards[i]
 
-            states = next_states
+                states = next_states
 
-            for i in range(NUM_AGENTS):
-                if len(memories[i]) < args.batch_size or env.steps < args.warmup_steps:
-                    continue
-                batch = random.sample(list(memories[i]), args.batch_size)
-                ss, aa, rr, ns, dd = zip(*batch)
-                ss = torch.from_numpy(np.stack(ss)).to(device)
-                aa = torch.LongTensor(aa).to(device)
-                rr = torch.FloatTensor(rr).to(device)
-                ns = torch.from_numpy(np.stack(ns)).to(device)
-                dd = torch.FloatTensor(dd).to(device)
-                with torch.no_grad():
-                    next_q = targets[i](ns).max(1)[0]
-                    target = rr + args.gamma * next_q * (1 - dd)
-                current_q = dqns[i](ss).gather(1, aa.unsqueeze(1)).squeeze()
-                loss = torch.nn.functional.mse_loss(current_q, target)
-                optimizers[i].zero_grad()
-                loss.backward()
-                optimizers[i].step()
-                train_updates += 1
+                for i in range(NUM_AGENTS):
+                    if len(memories[i]) < args.batch_size or env.steps < args.warmup_steps:
+                        continue
+                    batch = random.sample(list(memories[i]), args.batch_size)
+                    ss, aa, rr, ns, dd = zip(*batch)
+                    ss = torch.from_numpy(np.stack(ss)).to(device)
+                    aa = torch.LongTensor(aa).to(device)
+                    rr = torch.FloatTensor(rr).to(device)
+                    ns = torch.from_numpy(np.stack(ns)).to(device)
+                    dd = torch.FloatTensor(dd).to(device)
+                    with torch.no_grad():
+                        next_q = targets[i](ns).max(1)[0]
+                        target = rr + args.gamma * next_q * (1 - dd)
+                    current_q = dqns[i](ss).gather(1, aa.unsqueeze(1)).squeeze()
+                    loss = torch.nn.functional.mse_loss(current_q, target)
+                    optimizers[i].zero_grad()
+                    loss.backward()
+                    optimizers[i].step()
+                    train_updates += 1
 
-            if total_steps % args.target_update == 0:
-                for t, d in zip(targets, dqns):
-                    t.load_state_dict(d.state_dict())
+                if total_steps % args.target_update == 0:
+                    for t, d in zip(targets, dqns):
+                        t.load_state_dict(d.state_dict())
 
-            epsilon = max(EPS_END, epsilon * EPS_DECAY)
+                epsilon = max(EPS_END, epsilon * EPS_DECAY)
 
-            if args.save_interval and total_steps % args.save_interval == 0:
-                save_models(dqns, args.save_dir)
-                logger.info('Saved models at step %d', total_steps)
+                if args.save_interval and total_steps % args.save_interval == 0:
+                    save_models(dqns, args.save_dir)
+                    logger.info('Saved models at step %d', total_steps)
 
-            if args.render:
-                env.render()
+                if args.render:
+                    env.render()
 
-        if (ep + 1) % args.log_interval == 0:
-            avg_reward = sum(ep_rewards) / NUM_AGENTS if NUM_AGENTS else 0
-            logger.info("Ep %d/%d total_steps=%d avg_reward=%.3f epsilon=%.3f", ep + 1, args.episodes, total_steps, avg_reward, epsilon)
+            if (ep + 1) % args.log_interval == 0:
+                avg_reward = sum(ep_rewards) / NUM_AGENTS if NUM_AGENTS else 0
+                logger.info("Ep %d/%d total_steps=%d avg_reward=%.3f epsilon=%.3f", 
+                           ep + 1, args.episodes, total_steps, avg_reward, epsilon)
+                
+                # TensorBoard logging
+                if writer is not None:
+                    writer.add_scalar('train/avg_reward', avg_reward, ep + 1)
+                    writer.add_scalar('train/epsilon', epsilon, ep + 1)
+                    writer.add_scalar('train/total_steps', total_steps, ep + 1)
+                    for i, rew in enumerate(ep_rewards):
+                        writer.add_scalar(f'train/agent_{i}_reward', rew, ep + 1)
 
+    except KeyboardInterrupt:
+        logger.info("\n" + "="*60)
+        logger.info("Training interrupted by user (Ctrl+C)")
+        logger.info("="*60)
+        save_models(dqns, args.save_dir)
+        logger.info("Models saved to %s", args.save_dir)
+        logger.info("Progress preserved - you can resume training later!")
+        logger.info("="*60)
+        if writer is not None:
+            writer.close()
+        sys.exit(0)
+
+    # Normal training completion
     save_models(dqns, args.save_dir)
     logger.info("Training complete. Models saved to %s", args.save_dir)
+    
+    if writer is not None:
+        writer.close()
 
 
 def run_eval(args):
