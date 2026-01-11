@@ -122,11 +122,3 @@ $env:PYTHONPATH='D:\hhhh'; python archive/backup_contents/tests/run_tests.py
 - If verification or training behaves unexpectedly, run the small smoke scripts and capture tracebacks for debugging.
 
 ---
-
-## 9) Want me to commit & open a PR?
-
-I can create a branch (suggest `chore/README-training`) and open a PR with this README update — say the word and I'll do it.
-
----
-
-If you'd like a shorter, very focused cheat-sheet for training parameters or an example long-run config, I can add that quickly.
