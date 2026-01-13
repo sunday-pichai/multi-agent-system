@@ -263,7 +263,7 @@ class WarehouseEnv:
             total_collisions += episode_collisions
             all_trajectories.append(trajectories)
 
-        collision_rate = (total_collisions / total_steps) * 100 if total_steps > 0 else 0
+        avg_collisions_per_episode = total_collisions / num_episodes if num_episodes > 0 else 0
 
         if plot:
             from matplotlib import pyplot as plt
@@ -281,4 +281,4 @@ class WarehouseEnv:
             plt.tight_layout()
             plt.show()
 
-        return collision_rate
+        return avg_collisions_per_episode
