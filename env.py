@@ -233,52 +233,71 @@ class WarehouseEnv:
         pygame.display.flip()
         self.clock.tick(20)
 
-    def evaluate(self, dqns, device, num_episodes: int = 50, plot: bool = False, max_steps_per_episode: int = 200):
+    def evaluate(
+        self,
+        dqns,
+        device,
+        num_episodes: int = 50,
+        plot: bool = False,
+        max_steps_per_episode: int = 200
+    ):
         total_collisions = 0
-        total_steps = 0
         all_trajectories = []
 
         for ep in range(num_episodes):
             states = self.reset()
             done = False
             episode_collisions = 0
-            trajectories = [[(r.x, r.y)] for r in self.robots]
             steps_in_episode = 0
+
+            trajectories = [[(r.x, r.y)] for r in self.robots]
 
             while not done and steps_in_episode < max_steps_per_episode:
                 actions = []
                 for i, state in enumerate(states):
                     with torch.no_grad():
-                        q = dqns[i % len(dqns)] if len(dqns) < self.num_agents else dqns[i]
-                        a = q(torch.from_numpy(np.array(state, dtype=np.float32)).unsqueeze(0).to(device)).argmax().item()
-                    actions.append(a)
+                        qnet = dqns[i % len(dqns)] if len(dqns) < self.num_agents else dqns[i]
+                        action = (
+                            qnet(
+                                torch.from_numpy(
+                                    np.array(state, dtype=np.float32)
+                                ).unsqueeze(0).to(device)
+                            )
+                            .argmax()
+                            .item()
+                        )
+                    actions.append(action)
 
                 states, _, done, cols, _ = self.step(actions)
                 episode_collisions += cols
-                total_steps += 1
                 steps_in_episode += 1
+
                 for i, r in enumerate(self.robots):
                     trajectories[i].append((r.x, r.y))
 
             total_collisions += episode_collisions
             all_trajectories.append(trajectories)
 
-        avg_collisions_per_episode = total_collisions / num_episodes if num_episodes > 0 else 0
+        # ✅ FINAL, CORRECT METRIC
+        avg_collisions_per_agent_per_episode = (
+            total_collisions / (num_episodes * self.num_agents)
+            if num_episodes > 0 else 0
+        )
 
         if plot:
             from matplotlib import pyplot as plt
-            colors = plt.cm.rainbow(np.linspace(0, 1, len(all_trajectories[0])))
+            colors = plt.cm.rainbow(np.linspace(0, 1, self.num_agents))
             fig, ax = plt.subplots(figsize=(8, 8))
             for i, traj in enumerate(all_trajectories[0]):
                 x, y = zip(*traj)
                 ax.plot(x, y, marker='o', markersize=3, linewidth=1, color=colors[i], label=f'Agent {i+1}')
             ax.set_xlim(0, self.grid_w)
             ax.set_ylim(0, self.grid_h)
-            ax.set_title('Trajectories')
+            ax.set_title('Agent Trajectories (Evaluation)')
             ax.set_xlabel('X')
             ax.set_ylabel('Y')
             ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
             plt.tight_layout()
             plt.show()
 
-        return avg_collisions_per_episode
+        return avg_collisions_per_agent_per_episode
