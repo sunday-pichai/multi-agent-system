@@ -149,16 +149,15 @@ def run_train(args):
                     for t, d in zip(targets, dqns):
                         t.load_state_dict(d.state_dict())
 
-                # Epsilon decay per step (fine-tuned for better exploration)
-                # Decay slower to maintain exploration longer
-                epsilon = max(EPS_END, epsilon * EPS_DECAY)
-
                 if args.save_interval and total_steps % args.save_interval == 0:
                     save_models(dqns, args.save_dir)
                     logger.info('Saved models at step %d', total_steps)
 
                 if args.render:
                     env.render()
+                    
+            progress = (ep + 1) / args.episodes
+            epsilon = max(0.25, EPS_START - progress * (EPS_START - 0.25))
 
             if (ep + 1) % args.log_interval == 0:
                 avg_reward = sum(ep_rewards) / NUM_AGENTS if NUM_AGENTS else 0
