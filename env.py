@@ -132,7 +132,7 @@ class WarehouseEnv:
             trajectories = None
 
         for robot, a_idx in zip(self.robots, actions):
-            r = -0.02
+            r = -0.005  # Reduced step penalty (was -0.02)
 
             old_dist = self.get_dist_to_target(robot)
 
@@ -142,8 +142,11 @@ class WarehouseEnv:
             if action == 0:  # FORWARD
                 moved, bump = robot.forward(self)
                 if bump:
-                    r -= 0.7
+                    r -= 0.2  # Reduced collision penalty (was -0.7)
                     collisions += 1
+                elif moved:
+                    # Reward successful movement towards target
+                    r += 0.01
             elif action == 1:  # TURN_LEFT
                 robot.turn_left()
             elif action == 2:  # TURN_RIGHT
@@ -154,10 +157,16 @@ class WarehouseEnv:
             # WAIT
 
             new_dist = self.get_dist_to_target(robot)
-            r += (old_dist - new_dist) * 0.05
+            # Increased distance reward multiplier (was 0.05)
+            dist_improvement = old_dist - new_dist
+            if dist_improvement > 0:
+                r += dist_improvement * 0.15  # Stronger reward for progress
+            elif dist_improvement < 0:
+                r += dist_improvement * 0.05  # Smaller penalty for moving away
 
+            # Reduced penalty for carrying non-requested item (was -0.1)
             if robot.carrying and robot.carrying is not None and not robot.carrying['requested']:
-                r -= 0.1
+                r -= 0.05
 
             rewards.append(r)
 

@@ -12,7 +12,7 @@ import torch
 import numpy as np
 
 from config import (CELL_SIZE, NUM_AGENTS, BATCH_SIZE, WARMUP_STEPS, TARGET_UPDATE,
-                    SAVE_INTERVAL, EPS_START, EPS_END, EPS_DECAY, MEMORY_SIZE, ACTION_SIZE)
+                    SAVE_INTERVAL, EPS_START, EPS_END, EPS_DECAY, MEMORY_SIZE, ACTION_SIZE, LR)
 import config as cfg
 from eval_utils import set_seed, evaluate_repeated
 from dqn import DQN
@@ -26,7 +26,7 @@ def run_interactive(args):
 
     dqns = [DQN(env.get_state(env.robots[0]).__len__(), ACTION_SIZE).to(device) for _ in range(NUM_AGENTS)]
     targets = [DQN(env.get_state(env.robots[0]).__len__(), ACTION_SIZE).to(device) for _ in range(NUM_AGENTS)]
-    optimizers = [torch.optim.Adam(dqn.parameters()) for dqn in dqns]
+    optimizers = [torch.optim.Adam(dqn.parameters(), lr=LR) for dqn in dqns]
 
     for t, dqn in zip(targets, dqns):
         t.load_state_dict(dqn.state_dict())
@@ -73,7 +73,7 @@ def run_train(args):
 
     dqns = [DQN(len(env.get_state(env.robots[0])), ACTION_SIZE).to(device) for _ in range(NUM_AGENTS)]
     targets = [DQN(len(env.get_state(env.robots[0])), ACTION_SIZE).to(device) for _ in range(NUM_AGENTS)]
-    optimizers = [torch.optim.Adam(dqn.parameters()) for dqn in dqns]
+    optimizers = [torch.optim.Adam(dqn.parameters(), lr=LR) for dqn in dqns]
 
     # load existing models in save_dir
     for i, dqn in enumerate(dqns):
@@ -140,6 +140,8 @@ def run_train(args):
                     loss = torch.nn.functional.mse_loss(current_q, target)
                     optimizers[i].zero_grad()
                     loss.backward()
+                    # Gradient clipping for stability
+                    torch.nn.utils.clip_grad_norm_(dqns[i].parameters(), max_norm=1.0)
                     optimizers[i].step()
                     train_updates += 1
 
@@ -147,6 +149,8 @@ def run_train(args):
                     for t, d in zip(targets, dqns):
                         t.load_state_dict(d.state_dict())
 
+                # Epsilon decay per step (fine-tuned for better exploration)
+                # Decay slower to maintain exploration longer
                 epsilon = max(EPS_END, epsilon * EPS_DECAY)
 
                 if args.save_interval and total_steps % args.save_interval == 0:
@@ -158,8 +162,9 @@ def run_train(args):
 
             if (ep + 1) % args.log_interval == 0:
                 avg_reward = sum(ep_rewards) / NUM_AGENTS if NUM_AGENTS else 0
-                logger.info("Ep %d/%d total_steps=%d avg_reward=%.3f epsilon=%.3f", 
-                           ep + 1, args.episodes, total_steps, avg_reward, epsilon)
+                total_reward = sum(ep_rewards)
+                logger.info("Ep %d/%d total_steps=%d avg_reward=%.3f total_reward=%.3f epsilon=%.3f", 
+                           ep + 1, args.episodes, total_steps, avg_reward, total_reward, epsilon)
                 
                 # TensorBoard logging
                 if writer is not None:
