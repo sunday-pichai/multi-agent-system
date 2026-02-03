@@ -103,7 +103,7 @@ class WarehouseEnv:
 
         return state
 
-    def get_dist_to_target(self, robot: Robot) -> float:
+    def get_dist_to_target(self, robot: Robot) -> Optional[float]:
         if robot.carrying:
             if robot.carrying['requested']:
                 min_d = math.inf
@@ -112,11 +112,11 @@ class WarehouseEnv:
                     min_d = min(min_d, d)
                 return min_d
             else:
-                return 0
+                return None
         else:
             requested = [s for s in self.shelves if s['requested'] and not s['carried']]
             if not requested:
-                return 0
+                return None
             min_d = math.inf
             for s in requested:
                 d = abs(robot.x - s['x']) + abs(robot.y - s['y'])
@@ -165,11 +165,12 @@ class WarehouseEnv:
 
             new_dist = self.get_dist_to_target(robot)
             # Increased distance reward multiplier (was 0.05)
-            dist_improvement = old_dist - new_dist
-            if dist_improvement > 0:
-                r += dist_improvement * 0.12  # Reward progress
-            elif dist_improvement < 0:
-                r += dist_improvement * 0.04  # Smaller penalty for moving away
+            if old_dist is not None and new_dist is not None:
+                dist_improvement = old_dist - new_dist
+                if dist_improvement > 0:
+                    r += dist_improvement * 0.12  # Reward progress
+                elif dist_improvement < 0:
+                    r += dist_improvement * 0.04  # Smaller penalty for moving away
 
             # Reduced penalty for carrying non-requested item (was -0.1)
             if robot.carrying and robot.carrying is not None and not robot.carrying['requested']:

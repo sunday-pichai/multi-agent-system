@@ -23,7 +23,7 @@ training:
   save_interval: 20000
   eps_start: 1.0
   eps_end: 0.1  # Keep more exploration
-  eps_decay: 0.9999  # Slower decay for better exploration
+  eps_decay: 0.99997  # Slower decay for better exploration
 
 paths:
   model_dir: models

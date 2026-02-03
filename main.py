@@ -125,7 +125,7 @@ def run_train(args):
                 states = next_states
 
                 for i in range(NUM_AGENTS):
-                    if len(memories[i]) < args.batch_size or env.steps < args.warmup_steps:
+                    if len(memories[i]) < args.batch_size or total_steps < args.warmup_steps:
                         continue
                     batch = random.sample(list(memories[i]), args.batch_size)
                     ss, aa, rr, ns, dd = zip(*batch)

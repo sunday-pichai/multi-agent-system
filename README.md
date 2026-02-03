@@ -260,7 +260,7 @@ training:
   save_interval: 20000 # Checkpoint frequency
   eps_start: 1.0      # Initial exploration
   eps_end: 0.1        # Final exploration
-  eps_decay: 0.9999   # Exploration decay rate
+  eps_decay: 0.99997  # Exploration decay rate
 ```
 
 ### Command-Line Overrides
@@ -338,14 +338,15 @@ The reward system is carefully tuned to encourage desired behavior:
 
 | Action | Reward | Description |
 |--------|--------|-------------|
-| **Step** | -0.005 | Small time penalty |
+| **Step** | -0.01 | Small time penalty |
 | **Forward (success)** | +0.01 | Bonus for successful movement |
 | **Collision** | -0.2 | Penalty for collisions |
 | **Pick Requested** | +5.0 | Reward for picking requested shelf |
-| **Pick Non-Requested** | +0.5 | Small reward (neutral) |
+| **Pick Non-Requested** | +0.0 | Neutral (no reward) |
 | **Deliver** | +20.0 | Large reward for delivery |
-| **Drop** | -0.2 | Small penalty for dropping |
-| **Distance Improvement** | +0.15 × Δdistance | Reward for moving closer to target |
+| **Team Delivery Bonus** | +2.0 | Bonus to all agents on any delivery |
+| **Drop** | -0.1 | Small penalty for dropping |
+| **Distance Improvement** | +0.12 × Δdistance | Reward for moving closer to target |
 | **Carrying Non-Requested** | -0.05 | Small penalty per step |
 
 ### Reward Design Principles
@@ -365,7 +366,7 @@ The reward system is carefully tuned to encourage desired behavior:
 
 **Solution**: Already fixed! The reward structure has been optimized. If you still see issues:
 - Check that you're using the latest code
-- Verify `config.yaml` has correct epsilon decay (0.9999)
+- Verify `config.yaml` has correct epsilon decay (0.99997)
 - Ensure learning rate is 0.0005
 
 #### Pygame Warnings on Windows
