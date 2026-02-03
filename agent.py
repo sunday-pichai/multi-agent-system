@@ -64,15 +64,15 @@ class Robot:
                 new_shelf = {'id': new_id, 'x': x, 'y': y, 'carried': False, 'requested': True}
                 env.shelves.append(new_shelf)
                 self.carrying = None
-                return 20.0, "DELIVERED"  # Increased delivery reward (was 15.0)
+                return 20.0, "DELIVERED"  # Delivery reward
             else:
                 self.carrying['carried'] = False
                 self.carrying = None
-                return -0.2, "DROPPED"  # Reduced drop penalty (was -0.5)
+                return -0.1, "DROPPED"  # Small penalty for dropping
         else:
             for s in env.shelves:
                 if s['x'] == self.x and s['y'] == self.y and not s['carried']:
                     s['carried'] = True
                     self.carrying = s
-                    return 5.0 if s['requested'] else 0.5, "PICKED"  # Increased pick rewards, made non-requested neutral
-        return -0.1, "NOOP"  # Reduced no-op penalty (was -0.4)
+                    return 5.0 if s['requested'] else 0.0, "PICKED"  # Avoid rewarding non-requested pickup
+        return -0.05, "NOOP"  # Small no-op penalty

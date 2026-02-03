@@ -49,7 +49,7 @@ def test_env_state_shape():
     
     state = states[0]
     # State should be: 4 (robot) + NUM_SHELVES*4 + (NUM_AGENTS-1)*4
-    expected_size = 4 + NUM_SHELVES * 4 + (NUM_AGENTS - 1) * 4
+    expected_size = 4 + NUM_SHELVES * 4 + (env.num_agents - 1) * 4
     assert len(state) == expected_size, f"Expected state size {expected_size}, got {len(state)}"
     
     # Check all values are normalized (0-1 range)

@@ -5,13 +5,13 @@ import numpy as np
 
 
 def test_step_penalty():
-    """Verify step penalty is reduced to -0.005."""
+    """Verify step penalty is around -0.01 for wait."""
     env = WarehouseEnv(render=False)
     states = env.reset()
     actions = [4] * env.num_agents  # WAIT action
     _, rewards, _, _, _ = env.step(actions)
-    # Step penalty should be around -0.005 (not -0.02)
-    assert all(-0.01 < r < 0.0 for r in rewards), f"Expected step penalty ~-0.005, got {rewards[0]}"
+    # WAIT penalty includes base step penalty (-0.01) and wait penalty (-0.003)
+    assert all(-0.03 < r < 0.0 for r in rewards), f"Expected wait penalty ~-0.013, got {rewards[0]}"
 
 
 def test_collision_penalty():
@@ -31,7 +31,7 @@ def test_collision_penalty():
     
     if cols > 0:
         # Find the agent that collided (should have penalty around -0.2)
-        # Collision penalty: -0.2, step penalty: -0.005, so total around -0.205
+        # Collision penalty: -0.2, step penalty: -0.01, so total around -0.21
         collision_rewards = [r for r in rewards if r < -0.15]
         assert len(collision_rewards) > 0, "Expected collision but none detected"
         assert all(-0.3 < r < -0.1 for r in collision_rewards), f"Expected collision penalty ~-0.2, got {collision_rewards}"
@@ -69,12 +69,12 @@ def test_delivery_reward():
         _, rewards, _, _, _ = env.step(actions)
         delivery_reward = rewards[0]
         
-        # Should get delivery reward around 20.0 (minus step penalty)
-        assert delivery_reward > 19.0, f"Expected delivery reward ~20.0, got {delivery_reward}"
+        # Should get delivery reward around 20.0, plus team bonus
+        assert delivery_reward > 20.0, f"Expected delivery reward >20 (incl team bonus), got {delivery_reward}"
 
 
 def test_pick_rewards():
-    """Verify pick rewards: 5.0 for requested, 0.5 for non-requested."""
+    """Verify pick rewards: 5.0 for requested, 0.0 for non-requested."""
     env = WarehouseEnv(render=False)
     states = env.reset()
     
@@ -93,7 +93,7 @@ def test_pick_rewards():
         _, rewards, _, _, _ = env.step(actions)
         reward = rewards[0]
         
-        # Should be around 5.0 (minus step penalty ~-0.005, may have distance components)
+        # Should be around 5.0 (minus step penalty ~-0.01, may have distance components)
         # Allow for some variance due to distance rewards/penalties
         assert reward > 3.0, f"Expected pick requested reward ~5.0 (with adjustments), got {reward}"
     
@@ -110,8 +110,8 @@ def test_pick_rewards():
         _, rewards, _, _, _ = env.step(actions)
         reward = rewards[0]
         
-        # Should be around 0.5 (minus step penalty)
-        assert reward > 0.0, f"Expected pick non-requested reward ~0.5, got {reward}"
+        # Should be around 0.0 (minus step penalty)
+        assert reward > -0.2, f"Expected pick non-requested reward ~0.0, got {reward}"
 
 
 def test_distance_reward():
@@ -141,8 +141,8 @@ def test_distance_reward():
         _, rewards, _, _, _ = env.step(actions)
         reward = rewards[0]
         
-        # Should get better reward for moving closer (distance improvement * 0.15)
-        # Step penalty: -0.005, forward bonus: +0.01, distance reward: varies
+        # Should get better reward for moving closer (distance improvement * 0.12)
+        # Step penalty: -0.01, forward bonus: +0.01, distance reward: varies
         # The distance calculation depends on get_dist_to_target which considers
         # whether robot is carrying and what the target is
         # Allow for variance - just verify the reward system is working
@@ -164,7 +164,7 @@ def test_successful_forward_reward():
     actions = [0] * env.num_agents  # FORWARD
     _, rewards, _, cols, _ = env.step(actions)
     
-    # Should get step penalty (-0.005) + forward bonus (+0.01) = ~0.005
+    # Should get step penalty (-0.01) + forward bonus (+0.01) = ~0.0
     # Plus any distance reward (which may be negative if moving away from target)
     # Allow for some variance due to distance calculations
     forward_reward = rewards[0]

@@ -105,7 +105,7 @@ def test_robot_pick_shelf():
     env.reset()
     
     robot = env.robots[0]
-    shelf = env.shelves[0]
+    shelf = next((s for s in env.shelves if s['requested']), env.shelves[0])
     
     robot.x = shelf['x']
     robot.y = shelf['y']
@@ -117,7 +117,7 @@ def test_robot_pick_shelf():
     assert robot.carrying == shelf, "Robot should be carrying the shelf"
     assert shelf['carried'] == True, "Shelf should be marked as carried"
     assert msg == "PICKED", f"Expected 'PICKED', got '{msg}'"
-    assert reward > 0, f"Should get positive reward for picking, got {reward}"
+    assert reward >= 0, f"Should get non-negative reward for picking, got {reward}"
 
 
 def test_robot_deliver_shelf():
@@ -161,6 +161,7 @@ def test_robot_drop_shelf():
     assert msg == "DROPPED", f"Expected 'DROPPED', got '{msg}'"
     assert robot.carrying is None, "Robot should not be carrying after drop"
     assert shelf['carried'] == False, "Shelf should not be marked as carried"
+    assert reward <= 0, f"Expected a penalty for drop, got {reward}"
 
 
 if __name__ == '__main__':

@@ -7,7 +7,7 @@ from typing import List, Tuple, Optional
 from pathlib import Path
 from agent import Robot
 from config import (GRID_W, GRID_H, CELL_SIZE, NUM_AGENTS, NUM_SHELVES, GOALS,
-                    STATE_SIZE, NUM_AGENTS as CONFIG_AGENTS)
+                    STATE_SIZE)
 
 pygame.init()
 
@@ -89,7 +89,7 @@ class WarehouseEnv:
                 state.extend([0.0] * 4)
 
         others = [o for o in self.robots if o is not robot]
-        for i in range(CONFIG_AGENTS - 1):
+        for i in range(self.num_agents - 1):
             if i < len(others):
                 o = others[i]
                 state.extend([
@@ -126,13 +126,14 @@ class WarehouseEnv:
     def step(self, actions: List[int], record_trajectories: bool = False):
         rewards = []
         collisions = 0
+        delivered = 0
         if record_trajectories:
             trajectories = [[(r.x, r.y)] for r in self.robots]
         else:
             trajectories = None
 
         for robot, a_idx in zip(self.robots, actions):
-            r = -0.005  # Reduced step penalty (was -0.02)
+            r = -0.01  # Slight time penalty to reduce dithering
 
             old_dist = self.get_dist_to_target(robot)
 
@@ -149,26 +150,36 @@ class WarehouseEnv:
                     r += 0.01
             elif action == 1:  # TURN_LEFT
                 robot.turn_left()
+                r -= 0.002
             elif action == 2:  # TURN_RIGHT
                 robot.turn_right()
+                r -= 0.002
             elif action == 3:  # PICK_DROP
                 add_r, msg = robot.pick_or_drop(self)
                 r += add_r
+                if msg == "DELIVERED":
+                    delivered += 1
+            elif action == 4:  # WAIT
+                r -= 0.003
             # WAIT
 
             new_dist = self.get_dist_to_target(robot)
             # Increased distance reward multiplier (was 0.05)
             dist_improvement = old_dist - new_dist
             if dist_improvement > 0:
-                r += dist_improvement * 0.15  # Stronger reward for progress
+                r += dist_improvement * 0.12  # Reward progress
             elif dist_improvement < 0:
-                r += dist_improvement * 0.05  # Smaller penalty for moving away
+                r += dist_improvement * 0.04  # Smaller penalty for moving away
 
             # Reduced penalty for carrying non-requested item (was -0.1)
             if robot.carrying and robot.carrying is not None and not robot.carrying['requested']:
                 r -= 0.05
 
             rewards.append(r)
+
+        if delivered > 0:
+            team_bonus = 2.0
+            rewards = [r + team_bonus * delivered for r in rewards]
 
         self.steps += 1
         done = self.steps > 1000

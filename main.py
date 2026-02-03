@@ -12,7 +12,7 @@ import torch
 import numpy as np
 
 from config import (CELL_SIZE, NUM_AGENTS, BATCH_SIZE, WARMUP_STEPS, TARGET_UPDATE,
-                    SAVE_INTERVAL, EPS_START, EPS_END, EPS_DECAY, MEMORY_SIZE, ACTION_SIZE, LR)
+                    SAVE_INTERVAL, EPS_START, EPS_END, EPS_DECAY, MEMORY_SIZE, ACTION_SIZE, LR, GAMMA)
 import config as cfg
 from eval_utils import set_seed, evaluate_repeated
 from dqn import DQN
@@ -115,6 +115,7 @@ def run_train(args):
                 next_states, rewards, done, cols, _ = env.step(actions)
                 episode_steps += 1
                 total_steps += 1
+                epsilon = max(EPS_END, epsilon * EPS_DECAY)
 
                 for i in range(NUM_AGENTS):
                     s, a, _, _, _ = memories[i][-1]
@@ -156,8 +157,8 @@ def run_train(args):
                 if args.render:
                     env.render()
                     
-            progress = (ep + 1) / args.episodes
-            epsilon = max(0.25, EPS_START - progress * (EPS_START - 0.25))
+            # Epsilon decays per-step; keep a floor for exploration
+            epsilon = max(EPS_END, epsilon)
 
             if (ep + 1) % args.log_interval == 0:
                 avg_reward = sum(ep_rewards) / NUM_AGENTS if NUM_AGENTS else 0
@@ -302,7 +303,7 @@ def main(argv=None):
     parser.add_argument("--iterations", type=int, default=3, help="Number of verify/refine iterations")
     parser.add_argument("--refine-steps", type=int, default=200, help="Fine-tuning steps per iteration")
     parser.add_argument("--refine-batch", type=int, default=16, help="Fine-tuning batch size")
-    parser.add_argument("--gamma", type=float, default=0.99, help="Discount factor")
+    parser.add_argument("--gamma", type=float, default=GAMMA, help="Discount factor")
 
     args = parser.parse_args(argv)
 
