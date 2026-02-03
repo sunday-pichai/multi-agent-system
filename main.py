@@ -129,10 +129,10 @@ def run_train(args):
                         continue
                     batch = random.sample(list(memories[i]), args.batch_size)
                     ss, aa, rr, ns, dd = zip(*batch)
-                    ss = torch.from_numpy(np.stack(ss)).to(device)
+                    ss = torch.from_numpy(np.stack(ss)).float().to(device)
                     aa = torch.LongTensor(aa).to(device)
                     rr = torch.FloatTensor(rr).to(device)
-                    ns = torch.from_numpy(np.stack(ns)).to(device)
+                    ns = torch.from_numpy(np.stack(ns)).float().to(device)
                     dd = torch.FloatTensor(dd).to(device)
                     with torch.no_grad():
                         next_q = targets[i](ns).max(1)[0]
