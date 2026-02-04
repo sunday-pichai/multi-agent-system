@@ -101,6 +101,16 @@ To improve verification efficiency, the system reduces state space through:
 - **Role Orbits**: Agents are grouped by operational role (idle vs. carrying requested shelf)
 - **State Canonicalization**: Symmetric permutations of agent configurations are mapped to identical quotient states
 
+### Symmetry Reduction: Before vs After
+
+| Aspect | Full System | Symmetry-Reduced (Quotient) |
+| --- | --- | --- |
+| Agents represented | All N agents explicitly modeled | k role orbits (k <= 3 in this project) |
+| State size | O(N * d) full agent state | O(k * d) representative state |
+| Verification cost | Cver(n) over full dimension n = N * d | Cver(m) with m << n |
+| Counterexamples | Full traces over all agents | Lifted from quotient representatives |
+| Memory | O(n) full-state storage | O(m) reduced storage |
+
 ### Bounded Safety Verification
 
 The verification module ensures collision-free operation:

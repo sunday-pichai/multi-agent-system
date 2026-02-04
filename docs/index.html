@@ -362,6 +362,37 @@ CBS:
 - canonicalize positions  
 - shrink state space</code></pre>
                 </div>
+
+                <h4 style="margin-top: 2rem;">Before vs After Symmetry Reduction</h4>
+                <p>
+                  Role-orbit grouping collapses symmetric permutations. In this project, roles are
+                  derived from carrying status (idle, carrying requested, carrying non-requested).
+                </p>
+                <div class="comparison-table">
+                  <div class="comparison-cell comparison-head">Aspect</div>
+                  <div class="comparison-cell comparison-head">Full System</div>
+                  <div class="comparison-cell comparison-head">Symmetry-Reduced (Quotient)</div>
+
+                  <div class="comparison-cell comparison-label">Agents represented</div>
+                  <div class="comparison-cell">All N agents explicitly modeled</div>
+                  <div class="comparison-cell">k role orbits (k ≤ 3 in this project)</div>
+
+                  <div class="comparison-cell comparison-label">State size</div>
+                  <div class="comparison-cell">O(N · d) full agent state</div>
+                  <div class="comparison-cell">O(k · d) representative state</div>
+
+                  <div class="comparison-cell comparison-label">Verification cost</div>
+                  <div class="comparison-cell">Cver(n) over full dimension n = N · d</div>
+                  <div class="comparison-cell">Cver(m) with m ≪ n</div>
+
+                  <div class="comparison-cell comparison-label">Counterexamples</div>
+                  <div class="comparison-cell">Full traces over all agents</div>
+                  <div class="comparison-cell">Lifted from quotient representatives</div>
+
+                  <div class="comparison-cell comparison-label">Memory</div>
+                  <div class="comparison-cell">O(n) full-state storage</div>
+                  <div class="comparison-cell">O(m) reduced storage</div>
+                </div>
                 
                 <h4 style="margin-top: 2rem;">Interactive Demo: Symmetry Reduction</h4>
                 <div class="demo-controls">
@@ -540,8 +571,8 @@ Final constraints: 3 positions, 1 edges</code></pre>
 
     <footer class="docs-footer">
       <div class="footer-content">
-        <p>Warehouse MAS — Deterministic Multi-Agent System Documentation</p>
-        <p class="footer-meta">Built by <a href="https://github.com/sunday-pichai" target="_blank" rel="noopener noreferrer" style="color: var(--accent-primary); font-weight: 500;">Kamalesh</a> • Multi-agent systems & formal verification</p>
+        <p>Warehouse MAS</p>
+        <p class="footer-meta">Built by <a href="https://github.com/sunday-pichai" target="_blank" rel="noopener noreferrer" style="color: var(--accent-primary); font-weight: 500;">Kamalesh</a></p>
       </div>
     </footer>
 
