@@ -436,16 +436,25 @@ p {
 #algoCanvas {
   width: 100%;
   height: auto;
+  aspect-ratio: 5 / 3;
   border-radius: 12px;
   background: #0f1318;
   display: block;
+}
+
+@media (max-width: 768px) {
+  #flowChart,
+  #algoCanvas {
+    aspect-ratio: 4 / 3;
+  }
 }
 
 @media (max-width: 520px) {
   #flowCanvas,
   #flowChart,
   #algoCanvas {
-    height: 240px;
+    aspect-ratio: 3 / 2;
+    min-height: 240px;
   }
 }
 

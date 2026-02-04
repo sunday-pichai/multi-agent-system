@@ -73,18 +73,37 @@ const flowChartCaption = document.getElementById("flowChartCaption");
 function drawFlowChart(active) {
   if (!flowChart) return;
   const ctx = flowChart.getContext("2d");
-  ctx.clearRect(0, 0, flowChart.width, flowChart.height);
-  const bg = ctx.createLinearGradient(0, 0, flowChart.width, flowChart.height);
+  
+  // Handle high DPI displays
+  const dpr = window.devicePixelRatio || 1;
+  const rect = flowChart.getBoundingClientRect();
+  
+  flowChart.width = rect.width * dpr;
+  flowChart.height = rect.height * dpr;
+  
+  ctx.scale(dpr, dpr);
+  
+  const width = rect.width;
+  const height = rect.height;
+  
+  ctx.clearRect(0, 0, width, height);
+  const bg = ctx.createLinearGradient(0, 0, width, height);
   bg.addColorStop(0, "#0f1318");
   bg.addColorStop(1, "#18202a");
   ctx.fillStyle = bg;
-  ctx.fillRect(0, 0, flowChart.width, flowChart.height);
+  ctx.fillRect(0, 0, width, height);
 
+  // Dynamic positioning based on canvas size
+  const centerX = width / 2;
+  const centerY = height / 2;
+  const spacing = Math.min(width * 0.35, 180);
+  const vSpacing = Math.min(height * 0.3, 100);
+  
   const nodes = [
-    { key: "plan", label: "Plan", x: 60, y: 70 },
-    { key: "symmetry", label: "Symmetry", x: 300, y: 70 },
-    { key: "verify", label: "Verify", x: 300, y: 190 },
-    { key: "refine", label: "Refine", x: 60, y: 190 },
+    { key: "plan", label: "Plan", x: centerX - spacing, y: centerY - vSpacing },
+    { key: "symmetry", label: "Symmetry", x: centerX + spacing * 0.3, y: centerY - vSpacing },
+    { key: "verify", label: "Verify", x: centerX + spacing * 0.3, y: centerY + vSpacing * 0.3 },
+    { key: "refine", label: "Refine", x: centerX - spacing, y: centerY + vSpacing * 0.3 },
   ];
 
   function roundedRect(x, y, w, h, r) {
@@ -119,15 +138,17 @@ function drawFlowChart(active) {
     ctx.fill();
   }
 
-  arrow(200, 95, 300, 95);
-  arrow(370, 120, 370, 190);
-  arrow(300, 215, 200, 215);
-  arrow(130, 190, 130, 120);
+  // Draw arrows between nodes
+  const w = Math.min(width * 0.25, 140);
+  const h = Math.min(height * 0.15, 50);
+  
+  arrow(nodes[0].x + w, nodes[0].y + h/2, nodes[1].x, nodes[1].y + h/2);
+  arrow(nodes[1].x + w/2, nodes[1].y + h, nodes[2].x + w/2, nodes[2].y);
+  arrow(nodes[2].x, nodes[2].y + h/2, nodes[3].x + w, nodes[3].y + h/2);
+  arrow(nodes[3].x + w/2, nodes[3].y, nodes[0].x + w/2, nodes[0].y + h);
 
   nodes.forEach((n) => {
     const isActive = n.key === active;
-    const w = 160;
-    const h = 56;
     ctx.save();
     ctx.shadowColor = isActive ? "rgba(255, 214, 102, 0.5)" : "rgba(0,0,0,0.35)";
     ctx.shadowBlur = isActive ? 18 : 12;
@@ -141,10 +162,21 @@ function drawFlowChart(active) {
     ctx.restore();
 
     ctx.fillStyle = "#f2f2f2";
-    ctx.font = "600 16px 'Space Grotesk', sans-serif";
-    ctx.fillText(n.label, n.x + 20, n.y + 32);
+    const fontSize = Math.max(12, Math.min(16, width * 0.028));
+    ctx.font = `600 ${fontSize}px 'Space Grotesk', sans-serif`;
+    const textX = n.x + w * 0.15;
+    const textY = n.y + h * 0.6;
+    ctx.fillText(n.label, textX, textY);
   });
 }
+
+// Redraw on resize for responsive behavior
+window.addEventListener('resize', () => {
+  const activeBtn = document.querySelector('[data-flow].is-active');
+  if (activeBtn && flowChart) {
+    drawFlowChart(activeBtn.dataset.flow);
+  }
+});
 
 function updateFlow(active) {
   flowButtons.forEach((b) => b.classList.toggle("is-active", b.dataset.flow === active));
