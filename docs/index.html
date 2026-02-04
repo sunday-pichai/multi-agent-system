@@ -146,7 +146,7 @@ python tests/run_tests.py</code></pre>
             </div>
           </div>
           <div class="card">
-            <canvas id="flowChart" width="520" height="300"></canvas>
+            <canvas id="flowChart" width="1040" height="600"></canvas>
             <p class="canvas-caption" id="flowChartCaption">Plan → Symmetry → Verify → Refine</p>
           </div>
         </div>
@@ -171,7 +171,7 @@ python tests/run_tests.py</code></pre>
             </p>
           </div>
           <div class="card">
-            <canvas id="flowCanvas" width="520" height="320"></canvas>
+            <canvas id="flowCanvas" width="1040" height="640"></canvas>
             <p class="canvas-caption" id="canvasCaption">Planning: cooperative paths with reservations.</p>
           </div>
         </div>
@@ -182,15 +182,19 @@ python tests/run_tests.py</code></pre>
           <div>
             <h2>Algorithm Demo</h2>
             <p>
-              Animated A* frontier expansion and CBS conflict resolution.
+              Animated A* frontier expansion, CBS conflict resolution, symmetry reduction, quotient comparison, verification, and refinement.
             </p>
             <div class="canvas-controls">
               <button class="chip is-active" data-algo="astar">A* Expansion</button>
               <button class="chip" data-algo="cbs">CBS Conflict</button>
+              <button class="chip" data-algo="symmetry">Symmetry Reduction</button>
+              <button class="chip" data-algo="quotient">Quotient Comparison</button>
+              <button class="chip" data-algo="verification">Verification Demo</button>
+              <button class="chip" data-algo="refinement">Refinement</button>
             </div>
           </div>
           <div class="card">
-            <canvas id="algoCanvas" width="520" height="320"></canvas>
+            <canvas id="algoCanvas" width="1040" height="640"></canvas>
             <p class="canvas-caption" id="algoCaption">A*: expanding frontier toward the goal.</p>
           </div>
         </div>
@@ -341,6 +345,43 @@ Final constraints: 3 positions, 1 edges</code></pre>
               Use smaller grids or lower verification budgets for quick iteration,
               then increase budgets for stronger assurance.
             </p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section section--split" id="quotient-comparison">
+        <div class="container split">
+          <div>
+            <h2>Quotient State Comparison</h2>
+            <p>
+              Visualize the difference between the full state space and the symmetry-reduced quotient state space.
+            </p>
+            <div class="canvas-controls">
+              <button class="chip is-active" data-algo="full-state">Full State Space</button>
+              <button class="chip" data-algo="quotient-state">Quotient State Space</button>
+            </div>
+          </div>
+          <div class="card">
+            <canvas id="stateComparisonCanvas" width="520" height="320"></canvas>
+            <p class="canvas-caption" id="stateComparisonCaption">Full state space: all permutations of agents.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section section--split" id="verification-demo">
+        <div class="container split">
+          <div>
+            <h2>Verification Demo</h2>
+            <p>
+              Visualize collision checking and minimum separation verification on the quotient model.
+            </p>
+            <div class="canvas-controls">
+              <button class="chip is-active" data-algo="verification">Verification</button>
+            </div>
+          </div>
+          <div class="card">
+            <canvas id="verificationCanvas" width="520" height="320"></canvas>
+            <p class="canvas-caption" id="verificationCaption">Verification: checking collisions and safety margins.</p>
           </div>
         </div>
       </section>
