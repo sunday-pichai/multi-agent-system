@@ -11,52 +11,66 @@
 
 /* Dark Mode */
 body.dark-mode {
-  --bg: #1a1a1a;
-  --ink: #f5f5f5;
-  --muted: #b0b0b0;
-  --accent: #ff6b4a;
-  --accent-dark: #e55a39;
-  --card: #2a2a2a;
-  --shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
-  --grid: rgba(255, 255, 255, 0.08);
+  --bg: #0f0f0f;
+  --ink: #ffffff;
+  --muted: #cccccc;
+  --accent: #ff7a5c;
+  --accent-dark: #ff6b4a;
+  --card: #1a1a1a;
+  --shadow: 0 20px 50px rgba(0, 0, 0, 0.8);
+  --grid: rgba(255, 255, 255, 0.1);
 }
 
 body.dark-mode .hero {
-  background: linear-gradient(135deg, #0d0d0d 0%, #1a1a1a 50%, #0f0f0f 100%);
+  background: linear-gradient(135deg, #000000 0%, #0f0f0f 50%, #0a0a0a 100%);
 }
 
 body.dark-mode .section--split {
-  background: #1f1f1f;
+  background: #121212;
 }
 
 body.dark-mode .codeblock {
-  background: #0a0a0a;
-  color: #e3e7ec;
+  background: #000000;
+  color: #ffffff;
+  border: 1px solid #333333;
 }
 
 body.dark-mode .note code {
-  background: #2a2a2a;
+  background: #1a1a1a;
   color: #ff8c66;
+  border: 1px solid #333333;
 }
 
 body.dark-mode .grid__item {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 body.dark-mode .flow__step {
-  background: #2a2a2a;
-  color: #f5f5f5;
+  background: #1a1a1a;
+  color: #ffffff;
+  border: 1px solid #333333;
+}
+
+body.dark-mode .stat {
+  background: #1a1a1a;
+  border: 1px solid #333333;
+}
+
+body.dark-mode .stat__label {
+  color: #cccccc;
 }
 
 body.dark-mode #flowChart,
 body.dark-mode #algoCanvas,
 body.dark-mode #flowCanvas {
-  background: #0f1318;
+  background: #000000;
+  border: 1px solid #333333;
 }
 
 body.dark-mode .footer {
-  background: #0a0a0a;
-  color: #b0b0b0;
+  background: #000000;
+  color: #cccccc;
 }
 
 * {
@@ -71,18 +85,44 @@ body.dark-mode .footer {
   background: var(--card);
   border: 2px solid var(--accent);
   color: var(--accent);
-  width: 64px;
-  height: 34px;
-  border-radius: 999px;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
   cursor: pointer;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
   display: flex;
   align-items: center;
   justify-content: center;
   box-shadow: var(--shadow);
   transition: all 0.3s ease;
+  padding: 0;
+  opacity: 0;
+  visibility: hidden;
+}
+
+.dark-mode-toggle.visible {
+  opacity: 1;
+  visibility: visible;
+}
+
+.dark-mode-toggle svg {
+  width: 24px;
+  height: 24px;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.toggle-icon-dark {
+  display: none;
+  opacity: 0;
+}
+
+body.dark-mode .toggle-icon-light {
+  display: none;
+  opacity: 0;
+}
+
+body.dark-mode .toggle-icon-dark {
+  display: block;
+  opacity: 1;
 }
 
 .dark-mode-toggle:hover {

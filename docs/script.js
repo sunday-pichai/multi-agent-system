@@ -5,16 +5,21 @@ if (darkModeToggle) {
   const savedDarkMode = localStorage.getItem("darkMode") === "true";
   if (savedDarkMode) {
     document.body.classList.add("dark-mode");
-    darkModeToggle.textContent = "Light";
-  } else {
-    darkModeToggle.textContent = "Dark";
   }
 
   darkModeToggle.addEventListener("click", () => {
     document.body.classList.toggle("dark-mode");
     const isDarkMode = document.body.classList.contains("dark-mode");
     localStorage.setItem("darkMode", isDarkMode);
-    darkModeToggle.textContent = isDarkMode ? "Light" : "Dark";
+  });
+
+  // Show toggle only when scrolled down
+  window.addEventListener("scroll", () => {
+    if (window.scrollY > 300) {
+      darkModeToggle.classList.add("visible");
+    } else {
+      darkModeToggle.classList.remove("visible");
+    }
   });
 }
 
