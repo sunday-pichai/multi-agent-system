@@ -5,14 +5,16 @@ if (darkModeToggle) {
   const savedDarkMode = localStorage.getItem("darkMode") === "true";
   if (savedDarkMode) {
     document.body.classList.add("dark-mode");
-    darkModeToggle.textContent = "☀️";
+    darkModeToggle.textContent = "Light";
+  } else {
+    darkModeToggle.textContent = "Dark";
   }
 
   darkModeToggle.addEventListener("click", () => {
     document.body.classList.toggle("dark-mode");
     const isDarkMode = document.body.classList.contains("dark-mode");
     localStorage.setItem("darkMode", isDarkMode);
-    darkModeToggle.textContent = isDarkMode ? "☀️" : "🌙";
+    darkModeToggle.textContent = isDarkMode ? "Light" : "Dark";
   });
 }
 
@@ -248,7 +250,7 @@ if (canvas) {
   }
 
   function drawAgents(highlightGroups) {
-    baseAgents.forEach((a, i) => {
+    baseAgents.forEach((a) => {
       const path = paths[a.id];
       const pos = path[Math.min(stepIndex, path.length - 1)];
       const p = toPx(pos);

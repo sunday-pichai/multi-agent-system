@@ -1,12 +1,12 @@
 :root {
-  --bg: #f7f4ef;
+  --bg: #ffffff;
   --ink: #1e242b;
   --muted: #6b747c;
   --accent: #c85d3d;
   --accent-dark: #a7492e;
   --card: #ffffff;
-  --shadow: 0 20px 50px rgba(30, 36, 43, 0.15);
-  --grid: rgba(30, 36, 43, 0.08);
+  --shadow: 0 18px 40px rgba(30, 36, 43, 0.12);
+  --grid: rgba(30, 36, 43, 0.06);
 }
 
 /* Dark Mode */
@@ -71,11 +71,13 @@ body.dark-mode .footer {
   background: var(--card);
   border: 2px solid var(--accent);
   color: var(--accent);
-  width: 50px;
-  height: 50px;
-  border-radius: 50%;
+  width: 64px;
+  height: 34px;
+  border-radius: 999px;
   cursor: pointer;
-  font-size: 24px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -134,7 +136,7 @@ p {
   position: relative;
   padding: 90px 0 80px;
   overflow: hidden;
-  background: radial-gradient(circle at 20% 20%, #fff9f3, #f2eee8 60%, #ede7df);
+  background: radial-gradient(circle at 20% 20%, #ffffff, #f8fafc 55%, #f1f5f9);
   transition: background 0.3s ease;
 }
 
@@ -201,7 +203,7 @@ p {
 }
 
 .stat {
-  background: rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 0.92);
   border-radius: 16px;
   padding: 16px;
   box-shadow: var(--shadow);
@@ -223,7 +225,7 @@ p {
 }
 
 .section--split {
-  background: #f1ece6;
+  background: #f6f8fa;
 }
 
 .section--dark {
@@ -288,7 +290,7 @@ p {
 }
 
 .grid__item {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(30, 36, 43, 0.04);
   padding: 20px;
   border-radius: 14px;
 }
@@ -409,8 +411,8 @@ p {
 
 .footer {
   padding: 30px 0 50px;
-  background: #151a20;
-  color: #d3d7dc;
+  background: #f3f4f6;
+  color: #5b636b;
   text-align: center;
 }
 
