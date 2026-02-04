@@ -28,6 +28,12 @@ If PowerShell blocks scripts:
 Set-ExecutionPolicy -Scope Process Bypass
 ```
 
+## Documentation Website
+
+Open `docs/index.html` in a browser to view the documentation site.
+
+The demo video is embedded at `docs/demo.mp4`.
+
 ## Direct Commands
 
 ```bash

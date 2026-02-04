@@ -1,0 +1,430 @@
+:root {
+  --bg: #f7f4ef;
+  --ink: #1e242b;
+  --muted: #6b747c;
+  --accent: #c85d3d;
+  --accent-dark: #a7492e;
+  --card: #ffffff;
+  --shadow: 0 20px 50px rgba(30, 36, 43, 0.15);
+  --grid: rgba(30, 36, 43, 0.08);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Space Grotesk", "Segoe UI", system-ui, sans-serif;
+  color: var(--ink);
+  background: var(--bg);
+  font-size: 16px;
+}
+
+h1, h2, h3 {
+  margin: 0 0 16px 0;
+  letter-spacing: -0.02em;
+}
+
+h1 {
+  font-size: clamp(2.5rem, 3.5vw, 4rem);
+}
+
+h2 {
+  font-size: clamp(1.8rem, 2.5vw, 2.6rem);
+}
+
+p {
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+.container {
+  width: min(1100px, 92vw);
+  margin: 0 auto;
+}
+
+.hero {
+  position: relative;
+  padding: 90px 0 80px;
+  overflow: hidden;
+  background: radial-gradient(circle at 20% 20%, #fff9f3, #f2eee8 60%, #ede7df);
+}
+
+.hero__grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(var(--grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 48px 48px;
+  opacity: 0.6;
+}
+
+.hero__content {
+  position: relative;
+  z-index: 2;
+  width: min(980px, 92vw);
+  margin: 0 auto;
+}
+
+.eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  font-size: 0.75rem;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.lede {
+  font-size: 1.15rem;
+  max-width: 720px;
+}
+
+.cta {
+  margin-top: 28px;
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.btn {
+  background: var(--accent);
+  color: white;
+  text-decoration: none;
+  padding: 12px 22px;
+  border-radius: 999px;
+  box-shadow: var(--shadow);
+  font-weight: 600;
+}
+
+.btn--ghost {
+  background: transparent;
+  color: var(--accent-dark);
+  border: 1px solid var(--accent-dark);
+  box-shadow: none;
+}
+
+.hero__stats {
+  margin-top: 36px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 16px;
+}
+
+.stat {
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: var(--shadow);
+}
+
+.stat__value {
+  display: block;
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+
+.stat__label {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.section {
+  padding: 70px 0;
+}
+
+.section--split {
+  background: #f1ece6;
+}
+
+.section--dark {
+  background: #1e242b;
+  color: #f0f0f0;
+}
+
+.section--dark p {
+  color: #d0d6dc;
+}
+
+.split {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 32px;
+  align-items: start;
+}
+
+.card {
+  background: var(--card);
+  padding: 24px;
+  border-radius: 18px;
+  box-shadow: var(--shadow);
+}
+
+.video {
+  width: 100%;
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+}
+
+.codeblock {
+  background: #0f1318;
+  color: #e3e7ec;
+  padding: 16px;
+  border-radius: 14px;
+  overflow-x: auto;
+}
+
+.codeblock code {
+  font-family: "JetBrains Mono", "Fira Code", monospace;
+  font-size: 0.9rem;
+}
+
+.note code {
+  background: #fff1e8;
+  color: var(--accent-dark);
+  padding: 2px 6px;
+  border-radius: 6px;
+  font-family: "JetBrains Mono", monospace;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 20px;
+}
+
+.grid__item {
+  background: rgba(255, 255, 255, 0.08);
+  padding: 20px;
+  border-radius: 14px;
+}
+
+.flow {
+  list-style: none;
+  padding: 0;
+  margin: 24px 0 0;
+  display: grid;
+  gap: 12px;
+}
+
+.flow__step {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: var(--shadow);
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.flow__step span {
+  background: var(--accent);
+  color: #fff;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+}
+
+.flow__step:hover {
+  transform: translateY(-2px);
+}
+
+.flow__step.is-active {
+  outline: 2px solid var(--accent-dark);
+}
+
+.flow__detail {
+  min-height: 260px;
+}
+
+.readme-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 20px;
+}
+
+.canvas-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 16px 0 8px;
+}
+
+.canvas-controls--secondary {
+  margin-top: 4px;
+}
+
+.chip {
+  border: 1px solid var(--accent-dark);
+  background: transparent;
+  color: var(--accent-dark);
+  padding: 8px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.chip--solid {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.chip.is-active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+#flowCanvas {
+  width: 100%;
+  height: auto;
+  border-radius: 12px;
+  background: #0f1318;
+  display: block;
+}
+
+.canvas-caption {
+  margin: 10px 0 0;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+#flowChart,
+#algoCanvas {
+  width: 100%;
+  height: auto;
+  border-radius: 12px;
+  background: #0f1318;
+  display: block;
+}
+
+@media (max-width: 520px) {
+  #flowCanvas,
+  #flowChart,
+  #algoCanvas {
+    height: 240px;
+  }
+}
+
+.footer {
+  padding: 30px 0 50px;
+  background: #151a20;
+  color: #d3d7dc;
+  text-align: center;
+}
+
+@media (max-width: 900px) {
+  .hero {
+    padding: 70px 0 60px;
+  }
+
+  .hero__stats {
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  }
+
+  .section {
+    padding: 56px 0;
+  }
+
+  .split,
+  .readme-grid,
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 700px) {
+  .cta {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .hero__content {
+    width: min(92vw, 600px);
+  }
+
+  .hero__stats {
+    grid-template-columns: 1fr;
+  }
+
+  .codeblock {
+    padding: 12px;
+  }
+
+  .flow__step {
+    padding: 10px 12px;
+  }
+
+  .card {
+    padding: 18px;
+  }
+
+  .canvas-controls {
+    gap: 8px;
+  }
+
+  .chip {
+    padding: 8px 12px;
+  }
+
+  .video,
+  #flowCanvas,
+  #flowChart,
+  #algoCanvas {
+    width: 100%;
+    height: auto;
+  }
+}
+
+@media (max-width: 520px) {
+  h1 {
+    font-size: 2.2rem;
+  }
+
+  h2 {
+    font-size: 1.6rem;
+  }
+
+  .lede {
+    font-size: 1rem;
+  }
+
+  .hero__stats {
+    gap: 12px;
+  }
+
+  .hero {
+    padding: 56px 0 48px;
+  }
+
+  .section {
+    padding: 44px 0;
+  }
+
+  .codeblock {
+    padding: 10px;
+    font-size: 0.85rem;
+  }
+
+  .canvas-controls {
+    gap: 6px;
+  }
+
+  .chip {
+    font-size: 0.85rem;
+  }
+
+  #flowCanvas,
+  #flowChart,
+  #algoCanvas {
+    height: 220px;
+  }
+}
