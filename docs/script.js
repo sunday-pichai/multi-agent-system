@@ -1,5 +1,6 @@
 // ==================== Dark Mode Toggle ====================
 const mobileHeaderThemeToggle = document.getElementById("mobileHeaderThemeToggle");
+const desktopThemeToggle = document.getElementById("desktopThemeToggle");
 
 function toggleDarkMode() {
   document.body.classList.toggle("dark-mode");
@@ -17,6 +18,40 @@ if (savedDarkMode) {
 if (mobileHeaderThemeToggle) {
   mobileHeaderThemeToggle.addEventListener("click", toggleDarkMode);
 }
+
+// Desktop sidebar theme toggle
+if (desktopThemeToggle) {
+  desktopThemeToggle.addEventListener("click", toggleDarkMode);
+}
+
+// ==================== Desktop Sidebar Active Link ====================
+function updateActiveNavLink() {
+  const sections = document.querySelectorAll('.doc-section, .algo-card');
+  const navLinks = document.querySelectorAll('.nav-link');
+  
+  let currentSection = '';
+  const scrollPosition = window.scrollY + 150;
+  
+  sections.forEach(section => {
+    const sectionTop = section.offsetTop;
+    const sectionHeight = section.offsetHeight;
+    
+    if (scrollPosition >= sectionTop && scrollPosition < sectionTop + sectionHeight) {
+      currentSection = section.getAttribute('id');
+    }
+  });
+  
+  navLinks.forEach(link => {
+    link.classList.remove('active');
+    if (link.getAttribute('href') === `#${currentSection}`) {
+      link.classList.add('active');
+    }
+  });
+}
+
+// Update active link on scroll
+window.addEventListener('scroll', updateActiveNavLink);
+window.addEventListener('load', updateActiveNavLink);
 
 // ==================== Mobile Navigation System ====================
 class MobileNavigation {

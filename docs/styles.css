@@ -25,6 +25,7 @@
   --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
   --shadow-lg: 0 10px 20px rgba(0, 0, 0, 0.15);
   --toc-width: 240px;
+  --sidebar-width: 280px;
   --header-height: 180px;
 }
 
@@ -116,6 +117,126 @@ code {
   padding: 0.2em 0.4em;
   border-radius: 4px;
   color: var(--accent-primary);
+}
+
+/* ==================== Desktop Sidebar ==================== */
+.desktop-sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: var(--sidebar-width);
+  height: 100vh;
+  background: var(--bg-secondary);
+  border-right: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  z-index: 1000;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.sidebar-header {
+  padding: 1.5rem 1.5rem 1rem;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  background: var(--bg-secondary);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.sidebar-logo h2 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin: 0;
+  background: linear-gradient(135deg, var(--accent-primary), var(--accent-hover));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.sidebar-logo p {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  margin: 0.25rem 0 0 0;
+}
+
+.sidebar-theme-toggle {
+  width: 36px;
+  height: 36px;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.sidebar-theme-toggle:hover {
+  background: var(--bg-tertiary);
+  color: var(--accent-primary);
+  border-color: var(--accent-primary);
+}
+
+.sidebar-theme-toggle .toggle-icon-dark {
+  display: none;
+}
+
+body.dark-mode .sidebar-theme-toggle .toggle-icon-light {
+  display: none;
+}
+
+body.dark-mode .sidebar-theme-toggle .toggle-icon-dark {
+  display: block;
+}
+
+.sidebar-nav {
+  padding: 1rem 0;
+  flex: 1;
+}
+
+.nav-section {
+  margin-bottom: 2rem;
+}
+
+.nav-section-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  margin: 0 0 0.75rem 0;
+  padding: 0 1.5rem;
+}
+
+.nav-link {
+  display: block;
+  padding: 0.625rem 1.5rem;
+  color: var(--text-secondary);
+  font-size: 0.9375rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  border-left: 3px solid transparent;
+  text-decoration: none;
+}
+
+.nav-link:hover {
+  background: var(--bg-tertiary);
+  color: var(--accent-primary);
+  border-left-color: var(--accent-primary);
+}
+
+.nav-link.active {
+  background: var(--accent-light);
+  color: var(--accent-primary);
+  border-left-color: var(--accent-primary);
+  font-weight: 600;
 }
 
 /* Old sidebar removed - now using mobile fullscreen menu */
@@ -300,9 +421,35 @@ body.mobile-menu-open .mobile-fullscreen-menu {
   border-left-color: var(--accent-primary);
 }
 
+/* ==================== Responsive Breakpoints ==================== */
+@media (max-width: 768px) {
+  .desktop-sidebar {
+    display: none;
+  }
+  
+  .mobile-header {
+    display: flex;
+  }
+  
+  .docs-layout {
+    margin-left: 0;
+    padding-top: 60px;
+  }
+}
+
+@media (min-width: 769px) {
+  .mobile-header {
+    display: none !important;
+  }
+  
+  .mobile-fullscreen-menu {
+    display: none !important;
+  }
+}
+
 /* ==================== Main Layout ==================== */
 .docs-layout {
-  margin-left: 0;
+  margin-left: var(--sidebar-width);
   min-height: 100vh;
   display: flex;
   flex-direction: column;
