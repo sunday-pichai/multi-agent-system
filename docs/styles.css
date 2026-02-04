@@ -173,11 +173,15 @@ p {
   padding: 16px;
   border-radius: 14px;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .codeblock code {
   font-family: "JetBrains Mono", "Fira Code", monospace;
   font-size: 0.9rem;
+  display: block;
+  white-space: pre;
+  word-break: normal;
 }
 
 .note code {
@@ -412,6 +416,12 @@ p {
   .codeblock {
     padding: 10px;
     font-size: 0.85rem;
+  }
+
+  .codeblock code {
+    font-size: 0.82rem;
+    white-space: pre-wrap;
+    word-break: break-word;
   }
 
   .canvas-controls {
