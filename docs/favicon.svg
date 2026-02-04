@@ -1,12 +1,30 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <defs>
-    <linearGradient id="g" x1="0" x2="1" y1="0" y2="1">
-      <stop offset="0%" stop-color="#1f2a33"/>
-      <stop offset="100%" stop-color="#0f1318"/>
+    <linearGradient id="grad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0f1318"/>
+      <stop offset="100%" stop-color="#1f2a33"/>
     </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
   </defs>
-  <rect width="512" height="512" rx="128" fill="url(#g)"/>
-  <rect x="106" y="106" width="300" height="300" rx="60" stroke="#c85d3d" stroke-width="48" fill="none"/>
-  <circle cx="256" cy="256" r="72" fill="#ffd166"/>
-  <path d="M256 106 V406 M106 256 H406" stroke="#2d3a45" stroke-width="24" stroke-linecap="round"/>
+  
+  <rect width="512" height="512" rx="100" fill="url(#grad)"/>
+  
+  <g transform="translate(256,256)">
+    <!-- Grid -->
+    <path d="M-140 -140 L140 -140 L140 140 L-140 140 Z" fill="none" stroke="#2d3a45" stroke-width="16" rx="20"/>
+    <path d="M-50 -140 V140 M50 -140 V140 M-140 -50 H140 M-140 50 H140" stroke="#2d3a45" stroke-width="8"/>
+    
+    <!-- Path Element -->
+    <path d="M-140 50 H-50 L-50 -50 H50 L50 140" fill="none" stroke="#4fc3f7" stroke-width="24" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow)"/>
+    
+    <!-- Nodes -->
+    <circle cx="50" cy="140" r="32" fill="#4fc3f7" filter="url(#glow)"/>
+    <circle cx="50" cy="140" r="14" fill="#0f1318"/>
+  </g>
 </svg>

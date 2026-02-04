@@ -398,7 +398,7 @@ if (canvas) {
     if (!lastTick) lastTick = ts;
     const elapsed = ts - lastTick;
     if (playing && elapsed > 600) {
-      tick++;
+      stepIndex++;
       lastTick = ts;
     }
     render();
