@@ -2,19 +2,13 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Warehouse MAS — Deterministic Verification</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes" />
+    <title>Warehouse MAS Documentation — Multi-Agent System with Formal Verification</title>
     
-    <!-- Meta tags for sharing -->
-    <meta name="description" content="Multi-agent warehouse simulator with Cooperative A* + CBS, symmetry-reduced quotient verification, and constraint-based refinement." />
-    <meta name="og:title" content="Warehouse MAS — Deterministic Verification" />
-    <meta name="og:description" content="Multi-agent warehouse simulator with Cooperative A* + CBS, symmetry-reduced quotient verification, and constraint-based refinement." />
-    <meta name="og:type" content="website" />
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Warehouse MAS — Deterministic Verification" />
-    <meta name="twitter:description" content="Multi-agent warehouse simulator with Cooperative A* + CBS, symmetry-reduced quotient verification, and constraint-based refinement." />
-    <meta property="og:image" content="meta-preview.svg" />
-    <meta name="twitter:image" content="meta-preview.svg" />
+    <!-- Meta tags -->
+    <meta name="description" content="Documentation for a multi-agent warehouse simulator with Cooperative A* + CBS, symmetry-reduced quotient verification, and constraint-based refinement." />
+    <meta name="og:title" content="Warehouse MAS Documentation" />
+    <meta name="og:description" content="Multi-agent warehouse simulator with formal verification and symmetry reduction" />
     
     <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="favicon.svg" />
@@ -22,352 +16,502 @@
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <button id="darkModeToggle" class="dark-mode-toggle" aria-label="Toggle dark mode">
-      <!-- Light: Cyber Sun -->
-      <svg class="toggle-icon-light" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M12 3v1m0 16v1M3 12h1m16 0h1 M5.6 5.6l.7.7M17.7 17.7l.7.7M5.6 18.4l.7-.7M17.7 6.3l.7-.7"/>
-        <rect x="8" y="8" width="8" height="8" rx="2"/>
-      </svg>
-      <!-- Dark: Cyber Moon -->
-      <svg class="toggle-icon-dark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
-        <line x1="12" y1="21" x2="12" y2="23"/>
+    <!-- Mobile Menu Toggle -->
+    <button id="mobileMenuToggle" class="mobile-menu-toggle" aria-label="Toggle menu">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <line x1="3" y1="12" x2="21" y2="12"></line>
+        <line x1="3" y1="6" x2="21" y2="6"></line>
+        <line x1="3" y1="18" x2="21" y2="18"></line>
       </svg>
     </button>
-    <header class="hero">
-      <div class="hero__grid"></div>
-      <div class="hero__content">
-        <p class="eyebrow">Deterministic • Symmetry-Reduced • Formal Verification</p>
-        <h1>Warehouse MAS</h1>
-        <p class="lede">
-          Multi-agent warehouse simulator with Cooperative A* + CBS,
-          symmetry-reduced quotient verification, and constraint-based refinement.
-        </p>
-        <div class="cta">
-          <a class="btn" href="#run-local">Run Interactive</a>
-          <a class="btn btn--ghost" href="#flow">See Flowchart</a>
-        </div>
-        <div class="hero__stats">
-          <div class="stat">
-            <span class="stat__value">CBS + A*</span>
-            <span class="stat__label">Planning</span>
-          </div>
-          <div class="stat">
-            <span class="stat__value">Quotient</span>
-            <span class="stat__label">Verification</span>
-          </div>
-          <div class="stat">
-            <span class="stat__value">Quotient</span>
-            <span class="stat__label">Safety Lifting</span>
-          </div>
-        </div>
+    
+    <!-- Mobile Dark Mode Toggle -->
+    <button id="mobileThemeToggle" class="mobile-theme-toggle" aria-label="Toggle dark mode">
+      <svg class="toggle-icon-light" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="4"/>
+        <path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32l1.41 1.41M2 12h2m16 0h2M4.93 19.07l1.41-1.41m11.32-11.32l1.41-1.41"/>
+      </svg>
+      <svg class="toggle-icon-dark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+      </svg>
+    </button>
+    
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar__header">
+        <h3 class="sidebar__title">Warehouse MAS</h3>
+        <button class="sidebar__toggle" id="sidebarToggle" aria-label="Toggle sidebar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="3" y1="12" x2="21" y2="12"></line>
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <line x1="3" y1="18" x2="21" y2="18"></line>
+          </svg>
+        </button>
       </div>
-    </header>
-
-    <main>
-      <section class="section" id="scope">
-        <div class="container split">
-          <div>
-            <h2>Problem Scope</h2>
-            <p>
-              Multi-agent warehouse coordination must satisfy throughput and safety
-              constraints under dense traffic. This project models agents on a grid
-              with pickup/drop tasks and enforces collision-free behavior through
-              deterministic planning and bounded verification.
-            </p>
-            <div class="card">
-              <video class="video" controls preload="metadata">
-                <source src="demo.mp4" type="video/mp4" />
-                Your browser does not support the video tag.
-              </video>
-            </div>
-          </div>
-          <div class="card">
-            <h3>Safety Objective</h3>
-            <p>
-              Maintain minimum inter-agent separation and avoid collisions across
-              a finite horizon, while completing shelf delivery tasks.
-            </p>
-          </div>
+      
+      <nav class="sidebar__nav">
+        <div class="nav-section">
+          <h4 class="nav-section__title">Getting Started</h4>
+          <a href="#overview" class="nav-link">Overview</a>
+          <a href="#installation" class="nav-link">Installation</a>
+          <a href="#quick-start" class="nav-link">Quick Start</a>
         </div>
-      </section>
-      <section class="section" id="about">
-        <div class="container">
-          <h2>System Overview</h2>
-          <p>
-            Agents operate on a discrete grid with pickup/drop objectives. Planning is
-            deterministic (Cooperative A* with CBS conflict resolution). Safety is
-            checked via bounded verification on a symmetry-reduced quotient model.
+        
+        <div class="nav-section">
+          <h4 class="nav-section__title">Core Concepts</h4>
+          <a href="#problem-scope" class="nav-link">Problem Scope</a>
+          <a href="#architecture" class="nav-link">Architecture</a>
+          <a href="#algorithms" class="nav-link">Algorithms</a>
+        </div>
+        
+        <div class="nav-section">
+          <h4 class="nav-section__title">Features</h4>
+          <a href="#planning" class="nav-link">Path Planning</a>
+          <a href="#symmetry" class="nav-link">Symmetry Reduction</a>
+          <a href="#verification" class="nav-link">Verification</a>
+          <a href="#refinement" class="nav-link">Refinement</a>
+        </div>
+        
+        <div class="nav-section">
+          <h4 class="nav-section__title">Usage</h4>
+          <a href="#commands" class="nav-link">Commands</a>
+          <a href="#configuration" class="nav-link">Configuration</a>
+          <a href="#examples" class="nav-link">Examples</a>
+        </div>
+        
+        <div class="nav-section">
+          <h4 class="nav-section__title">Resources</h4>
+          <a href="#limitations" class="nav-link">Limitations</a>
+        </div>
+      </nav>
+      
+      <div class="sidebar__footer">
+        <button id="darkModeToggle" class="theme-toggle" aria-label="Toggle dark mode">
+          <svg class="toggle-icon-light" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32l1.41 1.41M2 12h2m16 0h2M4.93 19.07l1.41-1.41m11.32-11.32l1.41-1.41"/>
+          </svg>
+          <svg class="toggle-icon-dark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+          </svg>
+          <span>Theme</span>
+        </button>
+      </div>
+    </aside>
+
+    <!-- Sidebar Overlay (Mobile) -->
+    <div class="sidebar-overlay" id="sidebarOverlay" aria-hidden="true"></div>
+    
+    <!-- Main Content -->
+    <div class="docs-layout">
+      <header class="docs-header">
+        <div class="header-content">
+          <div class="breadcrumb">
+            <span class="breadcrumb__item">Documentation</span>
+            <span class="breadcrumb__separator">/</span>
+            <span class="breadcrumb__item breadcrumb__item--active">Home</span>
+          </div>
+          <h1 class="page-title">Warehouse Multi-Agent System</h1>
+          <p class="page-subtitle">
+            Deterministic multi-agent coordination with formal verification, symmetry reduction, and constraint-based planning
           </p>
-        </div>
-      </section>
-
-      <section class="section section--split" id="run-local">
-        <div class="container split">
-          <div>
-          <h2>Run Interactive Locally</h2>
-          <p>
-            The interactive renderer uses pygame for real-time visualization of
-            agent trajectories, pickups, deliveries, and collision avoidance.
-          </p>
-            <div class="codeblock">
-              <pre><code>python main.py --mode interactive --render</code></pre>
-            </div>
-            <p class="note">
-              Tip: If it feels slow, reduce grid size or steps in
-              <code>config.yaml</code>.
-            </p>
-          </div>
-          <div class="card">
-            <h3>Other Commands</h3>
-            <div class="codeblock">
-              <pre><code>python main.py --mode simulate --episodes 8 --steps-per-episode 200
-python main.py --mode eval --eval-episodes 3 --steps-per-episode 150
-python tests/run_tests.py</code></pre>
-            </div>
+          <div class="badge-row">
+            <span class="badge">CBS + A*</span>
+            <span class="badge">Symmetry Reduction</span>
+            <span class="badge">Formal Verification</span>
+            <span class="badge">Python 3.8+</span>
           </div>
         </div>
-      </section>
+      </header>
 
-      <section class="section" id="verify">
-        <div class="container">
-          <h2>Formal Verification (Symmetry-Reduced)</h2>
-          <p>
-            Safety is verified on a quotient model obtained by orbit-based symmetry
-            reduction. Counterexamples yield constraint updates and trigger re-verification.
-          </p>
-          <div class="codeblock">
-            <pre><code>python main.py --verify-refine --verify-horizon 30 --verify-trials 20</code></pre>
-          </div>
-        </div>
-      </section>
-
-      <section class="section section--split" id="flow">
-        <div class="container split">
-          <div>
-            <h2>Algorithm Flow</h2>
-            <p>
-              Canvas-based flowchart of the full pipeline. Click a stage to highlight it.
-            </p>
-            <div class="canvas-controls">
-              <button class="chip is-active" data-flow="plan">Plan</button>
-              <button class="chip" data-flow="symmetry">Symmetry</button>
-              <button class="chip" data-flow="verify">Verify</button>
-              <button class="chip" data-flow="refine">Refine</button>
-            </div>
-          </div>
-          <div class="card">
-            <canvas id="flowChart" width="600" height="360"></canvas>
-            <p class="canvas-caption" id="flowChartCaption">Plan → Symmetry → Verify → Refine</p>
-          </div>
-        </div>
-      </section>
-
-      <section class="section" id="canvas-demo">
-        <div class="container split">
-          <div>
-            <h2>Planning & Safety</h2>
-            <p>
-              Planning, symmetry grouping, verification, and
-              constraint refinement.
-            </p>
-            <div class="canvas-controls">
-              <button class="chip is-active" data-mode="plan">Plan</button>
-              <button class="chip" data-mode="symmetry">Symmetry</button>
-              <button class="chip" data-mode="verify">Verify</button>
-              <button class="chip" data-mode="refine">Refine</button>
-            </div>
-            <p class="note">
-              Conceptual visualization for documentation purposes (not the live simulator).
-            </p>
-          </div>
-          <div class="card">
-            <canvas id="flowCanvas" width="1040" height="640"></canvas>
-            <p class="canvas-caption" id="canvasCaption">Planning: cooperative paths with reservations.</p>
-          </div>
-        </div>
-      </section>
-
-      <section class="section section--split" id="algos">
-        <div class="container split">
-          <div>
-            <h2>Algorithm Demo</h2>
-            <p>
-              Animated A* frontier expansion, CBS conflict resolution, symmetry reduction, quotient comparison, verification, and refinement.
-            </p>
-            <div class="canvas-controls">
-              <button class="chip is-active" data-algo="astar">A* Expansion</button>
-              <button class="chip" data-algo="cbs">CBS Conflict</button>
-              <button class="chip" data-algo="symmetry">Symmetry Reduction</button>
-              <button class="chip" data-algo="quotient">Quotient Comparison</button>
-              <button class="chip" data-algo="verification">Verification Demo</button>
-              <button class="chip" data-algo="refinement">Refinement</button>
-            </div>
-          </div>
-          <div class="card">
-            <canvas id="algoCanvas" width="1040" height="640"></canvas>
-            <p class="canvas-caption" id="algoCaption">A*: expanding frontier toward the goal.</p>
-          </div>
-        </div>
-      </section>
-
-      <section class="section">
-        <div class="container">
-          <h2>Algorithm Details</h2>
-          <div class="grid">
-            <div class="grid__item">
-              <h3>Planning</h3>
-              <p>Cooperative A* plans time-expanded paths with reservations; CBS resolves conflicts by adding constraints and replanning affected agents.</p>
-            </div>
-            <div class="grid__item">
-              <h3>Symmetry</h3>
-              <p>Agents are partitioned into role orbits. Canonicalization maps symmetric permutations to a single quotient state.</p>
-            </div>
-            <div class="grid__item">
-              <h3>Verification</h3>
-              <p>Bounded verification checks collisions and minimum separation on the quotient; unsafe traces generate counterexamples.</p>
-            </div>
-            <div class="grid__item">
-              <h3>Refinement</h3>
-              <p>Counterexamples are compiled into hard constraints, steering the planner away from unsafe transitions.</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section class="section section--dark" id="readme">
-        <div class="container">
-          <h2>README Highlights</h2>
-          <div class="readme-grid">
-            <div>
-              <h3>Commands</h3>
-              <div class="codeblock">
-                <pre><code>python main.py --mode interactive --render
-python main.py --mode simulate --episodes 8 --steps-per-episode 200
-python main.py --mode eval --eval-episodes 3 --steps-per-episode 150
-python main.py --verify-refine --verify-horizon 30 --verify-trials 20
-python tests/run_tests.py</code></pre>
+      <main class="docs-main">
+        <div class="docs-container">
+          
+          <!-- Overview Section -->
+          <section class="doc-section" id="overview">
+            <h2 class="section-title">Overview</h2>
+            <div class="section-content">
+              <p class="lead">
+                A deterministic multi-agent warehouse coordination system that combines path planning,
+                symmetry reduction, and formal verification to ensure collision-free operation.
+              </p>
+              
+              <div class="info-card info-card--primary">
+                <h3>Key Features</h3>
+                <ul class="feature-list">
+                  <li><strong>Cooperative A* + CBS:</strong> Time-expanded pathfinding with conflict resolution</li>
+                  <li><strong>Symmetry Reduction:</strong> Orbit-based state space reduction for scalable verification</li>
+                  <li><strong>Bounded Verification:</strong> Formal safety checks on quotient models</li>
+                  <li><strong>Constraint Refinement:</strong> Iterative constraint extraction from counterexamples</li>
+                </ul>
+              </div>
+              
+              <div class="video-wrapper">
+                <video class="demo-video" controls preload="metadata">
+                  <source src="demo.mp4" type="video/mp4" />
+                  Your browser does not support the video tag.
+                </video>
+                <p class="caption">Real-time visualization of multi-agent coordination</p>
               </div>
             </div>
-            <div>
-              <h3>Key Defaults</h3>
-              <div class="codeblock">
-                <pre><code>grid: 16x16
-agents: 6
-shelves: 8
-horizon: 40
-verification: 30x20 trials</code></pre>
+          </section>
+          
+          <!-- Problem Scope Section -->
+          <section class="doc-section" id="problem-scope">
+            <h2 class="section-title">Problem Scope</h2>
+            <div class="section-content">
+              <p>
+                Multi-agent warehouse coordination must satisfy throughput and safety
+                constraints under dense traffic. This project models agents on a grid
+                with pickup/drop tasks and enforces collision-free behavior through
+                deterministic planning and bounded verification.
+              </p>
+              
+              <div class="info-card">
+                <h3>Safety Objectives</h3>
+                <ul>
+                  <li>Maintain minimum inter-agent separation at all times</li>
+                  <li>Prevent vertex and edge collisions across finite horizon</li>
+                  <li>Complete shelf pickup and delivery tasks efficiently</li>
+                  <li>Ensure deterministic and reproducible behavior</li>
+                </ul>
               </div>
             </div>
-          </div>
-        </div>
-      </section>
+          </section>
 
-      <section class="section section--dark">
-        <div class="container">
-          <h2>Architecture Overview</h2>
-          <div class="grid">
-            <div class="grid__item">
-              <h3>Planning</h3>
-              <p>Cooperative A* generates time-expanded paths. CBS resolves conflicts.</p>
+          <!-- Installation Section -->
+          <section class="doc-section" id="installation">
+            <h2 class="section-title">Installation</h2>
+            <div class="section-content">
+              <div class="info-card info-card--warning">
+                <strong>Prerequisites:</strong> Python 3.8 or higher, pip, virtual environment support
+              </div>
+              
+              <h3>Step 1: Clone the Repository</h3>
+              <div class="code-block">
+                <pre><code>git clone https://github.com/sunday-pichai/multi-agent-system.git
+cd multi-agent-system</code></pre>
+              </div>
+              
+              <h3>Step 2: Create Virtual Environment</h3>
+              <div class="code-block">
+                <pre><code>python -m venv .venv
+.venv\Scripts\activate  # Windows
+source .venv/bin/activate  # Linux/Mac</code></pre>
+              </div>
+              
+              <h3>Step 3: Install Dependencies</h3>
+              <div class="code-block">
+                <pre><code>pip install -r requirements.txt</code></pre>
+              </div>
             </div>
-            <div class="grid__item">
-              <h3>Symmetry Reduction</h3>
-              <p>Agents are grouped into role orbits and canonicalized to shrink state space.</p>
+          </section>
+          
+          <!-- Quick Start Section -->
+          <section class="doc-section" id="quick-start">
+            <h2 class="section-title">Quick Start</h2>
+            <div class="section-content">
+              <p>Get started with the interactive visualization in seconds:</p>
+              
+              <div class="code-block">
+                <pre><code>python main.py --mode interactive --render</code></pre>
+              </div>
+              
+              <div class="info-card info-card--tip">
+                <strong>💡 Tip:</strong> For better performance on large grids, reduce the grid size or time steps in <code>config.yaml</code>
+              </div>
             </div>
-            <div class="grid__item">
-              <h3>Verification</h3>
-              <p>Bounded checks on the quotient detect collisions and safety violations.</p>
+          </section>
+          
+          <!-- Commands Section -->
+          <section class="doc-section" id="commands">
+            <h2 class="section-title">Commands</h2>
+            <div class="section-content">
+              <h3>Interactive Mode</h3>
+              <p>Real-time visualization using pygame with agent trajectories, pickups, and collision avoidance:</p>
+              <div class="code-block">
+                <pre><code>python main.py --mode interactive --render</code></pre>
+              </div>
+              
+              <h3>Simulation Mode</h3>
+              <p>Run batch simulations for multiple episodes:</p>
+              <div class="code-block">
+                <pre><code>python main.py --mode simulate --episodes 8 --steps-per-episode 200</code></pre>
+              </div>
+              
+              <h3>Evaluation Mode</h3>
+              <p>Evaluate trained policies across test scenarios:</p>
+              <div class="code-block">
+                <pre><code>python main.py --mode eval --eval-episodes 3 --steps-per-episode 150</code></pre>
+              </div>
+              
+              <h3>Testing</h3>
+              <p>Run the full test suite:</p>
+              <div class="code-block">
+                <pre><code>python tests/run_tests.py</code></pre>
+              </div>
             </div>
-            <div class="grid__item">
-              <h3>Refinement</h3>
-              <p>Counterexamples become constraints that refine planning behavior.</p>
-            </div>
-          </div>
-        </div>
-      </section>
+          </section>
 
-      <section class="section">
-        <div class="container">
-          <h2>Installation</h2>
-          <div class="codeblock">
-            <pre><code>python -m venv .venv
-.\.venv\Scripts\activate
-pip install -r requirements.txt</code></pre>
-          </div>
-        </div>
-      </section>
+          <!-- Architecture Section -->
+          <section class="doc-section" id="architecture">
+            <h2 class="section-title">System Architecture</h2>
+            <div class="section-content">
+              <p>
+                Agents operate on a discrete grid with pickup/drop objectives. Planning is
+                deterministic (Cooperative A* with CBS conflict resolution). Safety is
+                checked via bounded verification on a symmetry-reduced quotient model.
+              </p>
+              
+              <div class="grid-4">
+                <div class="feature-card">
+                  <h3>Planning</h3>
+                  <p>Cooperative A* generates time-expanded paths. CBS resolves conflicts by adding constraints and replanning affected agents.</p>
+                </div>
+                <div class="feature-card">
+                  <h3>Symmetry</h3>
+                  <p>Agents are partitioned into role orbits. Canonicalization maps symmetric permutations to a single quotient state.</p>
+                </div>
+                <div class="feature-card">
+                  <h3>Verification</h3>
+                  <p>Bounded verification checks collisions and minimum separation on the quotient; unsafe traces generate counterexamples.</p>
+                </div>
+                <div class="feature-card">
+                  <h3>Refinement</h3>
+                  <p>Counterexamples are compiled into hard constraints, steering the planner away from unsafe transitions.</p>
+                </div>
+              </div>
+            </div>
+          </section>
 
-      <section class="section section--split">
-        <div class="container split">
-          <div>
-            <h2>Configuration Reference</h2>
-            <p>
-              Configure grid size, agent count, planning horizon, and verification
-              budget in <code>config.yaml</code>.
-            </p>
-          </div>
-          <div class="card">
-            <div class="codeblock">
-              <pre><code>planning:
+          <!-- Algorithms Section -->
+          <section class="doc-section" id="algorithms">
+            <h2 class="section-title">Algorithm Details</h2>
+            <div class="section-content">
+              
+              <div class="algo-card" id="planning">
+                <h3>Path Planning (CBS + Cooperative A*)</h3>
+                <p>
+                  Each agent plans a time-expanded path using Cooperative A*. CBS resolves conflicts 
+                  by adding constraints and replanning until paths are consistent.
+                </p>
+                <div class="code-block">
+                  <pre><code>Cooperative A*:
+- time-expanded grid
+- reservation table
+- avoid occupied cells
+
+CBS:
+- detect conflicts
+- add constraints
+- replan for agent</code></pre>
+                </div>
+                
+                <h4 style="margin-top: 2rem;">Interactive Demo: A* Pathfinding</h4>
+                <div class="demo-controls">
+                  <button class="demo-btn is-active" data-algo="astar">A* Expansion</button>
+                  <button class="demo-btn" data-algo="cbs">CBS Conflict Resolution</button>
+                </div>
+                <div class="demo-canvas-wrapper">
+                  <canvas id="algoCanvas" width="560" height="336"></canvas>
+                  <p class="canvas-caption" id="algoCaption">A*: expanding frontier toward the goal</p>
+                </div>
+              </div>
+
+              <div class="algo-card" id="symmetry">
+                <h3>Symmetry Reduction</h3>
+                <p>
+                  Agents are grouped into role orbits (idle vs carrying requested shelf). 
+                  Canonicalization maps symmetric permutations to a single quotient state.
+                </p>
+                <div class="code-block">
+                  <pre><code>Orbits:
+- group agents by role
+- canonicalize positions  
+- shrink state space</code></pre>
+                </div>
+                
+                <h4 style="margin-top: 2rem;">Interactive Demo: Symmetry Reduction</h4>
+                <div class="demo-controls">
+                  <button class="demo-btn" data-algo="symmetry">Symmetry Grouping</button>
+                  <button class="demo-btn" data-algo="quotient">Quotient Comparison</button>
+                </div>
+                <div class="demo-canvas-wrapper">
+                  <canvas id="symmetryCanvas" width="560" height="336"></canvas>
+                  <p class="canvas-caption" id="symmetryCaption">Symmetry: grouping agents into orbits</p>
+                </div>
+              </div>
+
+              <div class="algo-card" id="verification">
+                <h3>Bounded Verification</h3>
+                <p>
+                  Bounded verification checks collisions and minimum separation over the quotient. 
+                  If unsafe, it returns a counterexample trace.
+                </p>
+                <div class="code-block">
+                  <pre><code>Verify:
+- run trials on quotient
+- track collisions
+- compute safety margin (delta_q)</code></pre>
+                </div>
+                
+                <h4 style="margin-top: 2rem;">Interactive Demo: Verification Process</h4>
+                <div class="demo-controls">
+                  <button class="demo-btn" data-algo="verification">Safety Check</button>
+                  <button class="demo-btn" data-algo="refinement">Constraint Refinement</button>
+                </div>
+                <div class="demo-canvas-wrapper">
+                  <canvas id="verifyCanvas" width="560" height="336"></canvas>
+                  <p class="canvas-caption" id="verifyCaption">Verification: checking safety constraints</p>
+                </div>
+              </div>
+
+              <div class="algo-card" id="refinement">
+                <h3>Constraint Refinement</h3>
+                <p>
+                  Counterexamples are converted to hard constraints. The planner avoids 
+                  these moves and verification repeats.
+                </p>
+                <div class="code-block">
+                  <pre><code>Refine:
+- extract conflict from trace
+- add constraint to planner
+- re-verify</code></pre>
+                </div>
+                
+                <h4 style="margin-top: 2rem;">Algorithm Flow Visualization</h4>
+                <div class="demo-controls">
+                  <button class="demo-btn is-active" data-flow="plan">Plan</button>
+                  <button class="demo-btn" data-flow="symmetry">Symmetry</button>
+                  <button class="demo-btn" data-flow="verify">Verify</button>
+                  <button class="demo-btn" data-flow="refine">Refine</button>
+                </div>
+                <div class="demo-canvas-wrapper">
+                  <canvas id="flowChart" width="600" height="320"></canvas>
+                  <p class="canvas-caption" id="flowChartCaption">Plan → Symmetry → Verify → Refine</p>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- Configuration Section -->
+          <section class="doc-section" id="configuration">
+            <h2 class="section-title">Configuration Reference</h2>
+            <div class="section-content">
+              <p>
+                Configure grid size, agent count, planning horizon, and verification
+                budget in <code>config.yaml</code>.
+              </p>
+              
+              <h3>Planning Configuration</h3>
+              <div class="code-block">
+                <pre><code>planning:
   horizon: 40
   use_cbs: true
   cbs_max_nodes: 200
   astar_max_nodes: 6000
-  idle_limit: 6
+  idle_limit: 6</code></pre>
+              </div>
 
-verification:
+              <h3>Verification Configuration</h3>
+              <div class="code-block">
+                <pre><code>verification:
   horizon: 30
   trials: 20
   min_separation: 1</code></pre>
-            </div>
-          </div>
-        </div>
-      </section>
+              </div>
 
-      <section class="section">
-        <div class="container">
-          <h2>Verification Outputs</h2>
-          <p>
-            The verification loop reports progress per trial, the safety margin
-            <code>delta_q</code>, average collision rate, and a sample of final constraints.
-          </p>
-          <div class="codeblock">
-            <pre><code>Verification passed at iteration 2 (delta_q=0.50)
+              <h3>Environment Configuration</h3>
+              <div class="code-block">
+                <pre><code>environment:
+  grid_width: 16
+  grid_height: 16
+  num_agents: 6
+  num_shelves: 8</code></pre>
+              </div>
+            </div>
+          </section>
+
+          <!-- Examples Section -->
+          <section class="doc-section" id="examples">
+            <h2 class="section-title">Usage Examples</h2>
+            <div class="section-content">
+              
+              <h3>Run Verification with Refinement</h3>
+              <div class="code-block">
+                <pre><code>python main.py --verify-refine --verify-horizon 30 --verify-trials 20</code></pre>
+              </div>
+              
+              <div class="info-card">
+                <h4>Expected Output</h4>
+                <div class="code-block">
+                  <pre><code>Verification passed at iteration 2 (delta_q=0.50)
 Average collision rate (per step): 0.0000
 Final constraints: 3 positions, 1 edges</code></pre>
-          </div>
+                </div>
+              </div>
+
+              <h3>Interactive Mode with Custom Grid</h3>
+              <p>Edit <code>config.yaml</code> to set custom grid parameters, then run:</p>
+              <div class="code-block">
+                <pre><code>python main.py --mode interactive --render</code></pre>
+              </div>
+            </div>
+          </section>
+
+          <!-- Limitations Section -->
+          <section class="doc-section" id="limitations">
+            <h2 class="section-title">Limitations</h2>
+            <div class="section-content">
+              <div class="info-card info-card--warning">
+                <h3>Current Limitations</h3>
+                <ul>
+                  <li>Verification is bounded in time and trials</li>
+                  <li>Refinement relies on extracted counterexamples</li>
+                  <li>May require multiple iterations to converge for dense layouts</li>
+                  <li>Performance degrades with very large grids (>20x20)</li>
+                </ul>
+              </div>
+              
+              <div class="info-card info-card--tip">
+                <h3>Recommended Usage</h3>
+                <p>
+                  Use smaller grids or lower verification budgets for quick iteration,
+                  then increase budgets for stronger assurance on final configurations.
+                </p>
+              </div>
+            </div>
+          </section>
+
         </div>
-      </section>
-
-      <section class="section section--split">
-        <div class="container split">
-          <div>
-            <h2>Limitations</h2>
-            <p>
-              Verification is bounded in time and trials. Refinement relies on
-              extracted counterexamples and may require multiple iterations to
-              converge for dense layouts.
-            </p>
+        
+        <!-- Table of Contents -->
+        <aside class="toc" id="toc">
+          <div class="toc__header">
+            <h4>On This Page</h4>
           </div>
-          <div class="card">
-            <h3>Recommended Usage</h3>
-            <p>
-              Use smaller grids or lower verification budgets for quick iteration,
-              then increase budgets for stronger assurance.
-            </p>
-          </div>
-        </div>
-      </section>
+          <nav class="toc__nav">
+            <a href="#overview" class="toc__link">Overview</a>
+            <a href="#problem-scope" class="toc__link">Problem Scope</a>
+            <a href="#installation" class="toc__link">Installation</a>
+            <a href="#quick-start" class="toc__link">Quick Start</a>
+            <a href="#commands" class="toc__link">Commands</a>
+            <a href="#architecture" class="toc__link">Architecture</a>
+            <a href="#algorithms" class="toc__link">Algorithms</a>
+            <a href="#configuration" class="toc__link">Configuration</a>
+            <a href="#examples" class="toc__link">Examples</a>
+            <a href="#limitations" class="toc__link">Limitations</a>
+          </nav>
+        </aside>
+      </main>
+    </div>
 
-
-    </main>
-
-    <footer class="footer">
-      <div class="container">
-        <p>Warehouse MAS — Deterministic Verification Documentation</p>
+    <footer class="docs-footer">
+      <div class="footer-content">
+        <p>Warehouse MAS — Deterministic Multi-Agent System Documentation</p>
+        <p class="footer-meta">Built by <a href="https://github.com/sunday-pichai" target="_blank" rel="noopener noreferrer" style="color: var(--accent-primary); font-weight: 500;">Kamalesh</a> • Multi-agent systems & formal verification</p>
       </div>
     </footer>
+
     <script src="script.js"></script>
   </body>
 </html>

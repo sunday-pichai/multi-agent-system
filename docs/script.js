@@ -1,5 +1,14 @@
+// ==================== Dark Mode Toggle ====================
 // Dark mode toggle functionality
 const darkModeToggle = document.getElementById("darkModeToggle");
+const mobileThemeToggle = document.getElementById("mobileThemeToggle");
+
+function toggleDarkMode() {
+  document.body.classList.toggle("dark-mode");
+  const isDarkMode = document.body.classList.contains("dark-mode");
+  localStorage.setItem("darkMode", isDarkMode);
+}
+
 if (darkModeToggle) {
   // Check for saved dark mode preference or default to light mode
   const savedDarkMode = localStorage.getItem("darkMode") === "true";
@@ -7,11 +16,7 @@ if (darkModeToggle) {
     document.body.classList.add("dark-mode");
   }
 
-  darkModeToggle.addEventListener("click", () => {
-    document.body.classList.toggle("dark-mode");
-    const isDarkMode = document.body.classList.contains("dark-mode");
-    localStorage.setItem("darkMode", isDarkMode);
-  });
+  darkModeToggle.addEventListener("click", toggleDarkMode);
 
   // Show toggle only when scrolled down
   window.addEventListener("scroll", () => {
@@ -21,6 +26,117 @@ if (darkModeToggle) {
       darkModeToggle.classList.remove("visible");
     }
   });
+}
+
+if (mobileThemeToggle) {
+  // Check for saved dark mode preference
+  const savedDarkMode = localStorage.getItem("darkMode") === "true";
+  if (savedDarkMode) {
+    document.body.classList.add("dark-mode");
+  }
+
+  mobileThemeToggle.addEventListener("click", toggleDarkMode);
+}
+
+// ==================== Mobile Menu Toggle ====================
+const mobileMenuToggle = document.getElementById("mobileMenuToggle");
+const sidebar = document.getElementById("sidebar");
+const sidebarToggle = document.getElementById("sidebarToggle");
+const sidebarOverlay = document.getElementById("sidebarOverlay");
+
+function setSidebarOpen(isOpen) {
+  if (!sidebar) return;
+  sidebar.classList.toggle("is-open", isOpen);
+  document.body.classList.toggle("sidebar-open", isOpen);
+}
+
+function toggleSidebar() {
+  if (!sidebar) return;
+  setSidebarOpen(!sidebar.classList.contains("is-open"));
+}
+
+if (mobileMenuToggle) {
+  mobileMenuToggle.addEventListener("click", toggleSidebar);
+}
+
+if (sidebarToggle) {
+  sidebarToggle.addEventListener("click", toggleSidebar);
+}
+
+if (sidebarOverlay) {
+  sidebarOverlay.addEventListener("click", () => setSidebarOpen(false));
+}
+
+if (sidebar) {
+  sidebar.addEventListener("click", (e) => {
+    if (window.innerWidth > 1024) return;
+    const target = e.target;
+    if (target instanceof Element && target.closest(".nav-link")) {
+      setSidebarOpen(false);
+    }
+  });
+}
+
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && sidebar?.classList.contains("is-open")) {
+    setSidebarOpen(false);
+  }
+});
+
+window.addEventListener("resize", () => {
+  if (window.innerWidth > 1024 && sidebar?.classList.contains("is-open")) {
+    setSidebarOpen(false);
+  }
+});
+
+// ==================== Sidebar Toggle (Mobile) ====================
+// Removed - no longer using sidebar
+
+// ==================== Active Link Highlighting ====================
+// Removed - no longer using active link highlighting
+
+// ==================== Canvas Demos ====================
+const CANVAS_MIN_HEIGHT = (() => {
+  if (typeof window === "undefined") {
+    return 1444;
+  }
+  const width = window.innerWidth;
+  if (width <= 480) return 420;
+  if (width <= 768) return 540;
+  if (width <= 1024) return 720;
+  return 1444;
+})();
+
+function createHiResCanvas(canvas, minHeight = CANVAS_MIN_HEIGHT) {
+  const ctx = canvas.getContext("2d");
+  let lastWidth = 0;
+  let lastHeight = 0;
+  let lastScale = 0;
+
+  function resize(force = false) {
+    const rect = canvas.getBoundingClientRect();
+    if (!rect.width || !rect.height) {
+      return { width: 0, height: 0, scale: 1 };
+    }
+
+    const dpr = window.devicePixelRatio || 1;
+    const scale = Math.max(dpr, minHeight / rect.height);
+    const width = Math.max(1, Math.round(rect.width * scale));
+    const height = Math.max(1, Math.round(rect.height * scale));
+
+    if (force || width !== lastWidth || height !== lastHeight || scale !== lastScale) {
+      canvas.width = width;
+      canvas.height = height;
+      ctx.setTransform(scale, 0, 0, scale, 0, 0);
+      lastWidth = width;
+      lastHeight = height;
+      lastScale = scale;
+    }
+
+    return { width: rect.width, height: rect.height, scale };
+  }
+
+  return { ctx, resize };
 }
 
 const steps = {
@@ -66,26 +182,20 @@ CBS:
   },
 };
 
-const flowButtons = document.querySelectorAll("[data-flow]");
+// ==================== Flow Chart Demo ====================
+const flowSection = document.getElementById("refinement");
+const flowButtons = flowSection ? flowSection.querySelectorAll("[data-flow]") : [];
 const flowChart = document.getElementById("flowChart");
 const flowChartCaption = document.getElementById("flowChartCaption");
+const flowChartSurface = flowChart ? createHiResCanvas(flowChart) : null;
 
 function drawFlowChart(active) {
-  if (!flowChart) return;
-  const ctx = flowChart.getContext("2d");
-  
-  // Handle high DPI displays
-  const dpr = window.devicePixelRatio || 1;
-  const rect = flowChart.getBoundingClientRect();
-  
-  flowChart.width = rect.width * dpr;
-  flowChart.height = rect.height * dpr;
-  
-  ctx.scale(dpr, dpr);
-  
-  const width = rect.width;
-  const height = rect.height;
-  
+  if (!flowChart || !flowChartSurface) return;
+  const ctx = flowChartSurface.ctx;
+  const size = flowChartSurface.resize();
+  const width = size.width;
+  const height = size.height;
+
   ctx.clearRect(0, 0, width, height);
   const bg = ctx.createLinearGradient(0, 0, width, height);
   bg.addColorStop(0, "#0f1318");
@@ -186,7 +296,9 @@ function updateFlow(active) {
     verify: "Verify: bounded safety checks on the quotient model.",
     refine: "Refine: constraints injected from counterexamples.",
   };
-  flowChartCaption.textContent = captions[active] || "";
+  if (flowChartCaption) {
+    flowChartCaption.textContent = steps[active]?.title || captions[active] || "";
+  }
   drawFlowChart(active);
 }
 
@@ -199,7 +311,7 @@ updateFlow("plan");
 // Canvas interactive explainer - minimal design
 const canvas = document.getElementById("flowCanvas");
 const caption = document.getElementById("canvasCaption");
-const modeButtons = document.querySelectorAll(".chip");
+const modeButtons = document.querySelectorAll("[data-mode]");
 
 if (canvas) {
   const ctx = canvas.getContext("2d");
@@ -208,7 +320,7 @@ if (canvas) {
 
   // Simplified grid - 6x4
   const gridSize = 6;
-  const cellSize = 100;
+  const cellSize = 60;
   const gridX = (W - gridSize * cellSize) / 2;
   const gridY = (H - 4 * cellSize) / 2;
 
@@ -288,11 +400,11 @@ if (canvas) {
     
     ctx.fillStyle = color;
     ctx.beginPath();
-    ctx.arc(p.x, p.y, 26, 0, Math.PI * 2);
+    ctx.arc(p.x, p.y, 18, 0, Math.PI * 2);
     ctx.fill();
     
     ctx.fillStyle = "#fff";
-    ctx.font = "bold 18px Arial";
+    ctx.font = "bold 14px Arial";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillText(label, p.x, p.y);
@@ -303,13 +415,13 @@ if (canvas) {
     ctx.strokeStyle = "#ffd166";
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.arc(p.x, p.y, 10, 0, Math.PI * 2);
+    ctx.arc(p.x, p.y, 8, 0, Math.PI * 2);
     ctx.stroke();
     
     ctx.fillStyle = "#ffd166";
-    ctx.font = "10px Arial";
+    ctx.font = "9px Arial";
     ctx.textAlign = "center";
-    ctx.fillText(label, p.x, p.y - 20);
+    ctx.fillText(label, p.x, p.y - 15);
   }
 
   function drawConflictZone() {
@@ -318,7 +430,7 @@ if (canvas) {
     ctx.fillStyle = "rgba(239, 83, 80, 0.15)";
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.arc(p.x, p.y, 35, 0, Math.PI * 2);
+    ctx.arc(p.x, p.y, 18, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
   }
@@ -329,10 +441,10 @@ if (canvas) {
     ctx.fillStyle = "#555";
     ctx.strokeStyle = "#888";
     ctx.lineWidth = 2;
-    ctx.fillRect(p1.x - 15, p1.y - 15, 30, 30);
-    ctx.fillRect(p2.x - 15, p2.y - 15, 30, 30);
-    ctx.strokeRect(p1.x - 15, p1.y - 15, 30, 30);
-    ctx.strokeRect(p2.x - 15, p2.y - 15, 30, 30);
+    ctx.fillRect(p1.x - 12, p1.y - 12, 24, 24);
+    ctx.fillRect(p2.x - 12, p2.y - 12, 24, 24);
+    ctx.strokeRect(p1.x - 12, p1.y - 12, 24, 24);
+    ctx.strokeRect(p2.x - 12, p2.y - 12, 24, 24);
   }
 
   function drawSymmetryGroup() {
@@ -417,22 +529,54 @@ if (canvas) {
   });
 }
 
+// ==================== Shared Scenario Data (Global Scope) ====================
+// Declare these as global variables so all canvas sections can access them
+let symmetryScenarios, quotientComparisonScenarios, verificationScenarios, refinementScenarios;
+
 // Algorithm demo canvas
 const algoCanvas = document.getElementById("algoCanvas");
 const algoCaption = document.getElementById("algoCaption");
-const algoButtons = document.querySelectorAll("[data-algo]");
+const algoSection = document.getElementById("planning");
+const algoButtons = algoSection ? algoSection.querySelectorAll("[data-algo]") : [];
+const algoSurface = algoCanvas ? createHiResCanvas(algoCanvas) : null;
+
+const debugDiv = document.getElementById('debugStatus');
+if (debugDiv) {
+  setTimeout(() => {
+    debugDiv.innerHTML = `
+      algoCanvas: ${algoCanvas ? '✓' : '✗'}<br>
+      symmetryCanvas: ${document.getElementById('symmetryCanvas') ? '✓' : '✗'}<br>
+      verifyCanvas: ${document.getElementById('verifyCanvas') ? '✓' : '✗'}<br>
+      symmetryScenarios: ${typeof symmetryScenarios !== 'undefined' && symmetryScenarios ? symmetryScenarios.length + ' items' : '✗ UNDEFINED'}<br>
+      Animation: ${algoPlaying ? '✓ Running' : '✗ Stopped'}
+    `;
+  }, 1000);
+}
+
+console.log('algoCanvas:', algoCanvas, 'algoCaption:', algoCaption, 'algoButtons:', algoButtons.length);
 
 if (algoCanvas) {
-  const ctx = algoCanvas.getContext("2d");
+  console.log('Initializing algoCanvas...');
+  const ctx = algoSurface.ctx;
   const grid = 10;
-  const cell = 56;
-  // Center the grid in the canvas
-  const offsetX = (algoCanvas.width - grid * cell) / 2;
-  const offsetY = (algoCanvas.height - grid * cell) / 2;
+  const cell = 32;
+  let canvasWidth = 0;
+  let canvasHeight = 0;
+  let offsetX = 0;
+  let offsetY = 0;
   let algoMode = "astar";
   let tick = 0;
   let algoPlaying = true;
   let lastAlgoTick = 0;
+
+  function updateAlgoLayout() {
+    const size = algoSurface.resize();
+    canvasWidth = size.width;
+    canvasHeight = size.height;
+    offsetX = (canvasWidth - grid * cell) / 2;
+    offsetY = (canvasHeight - grid * cell) / 2;
+    return size;
+  }
 
   const astarStart = { x: 1, y: 1 };
   const astarGoal = { x: 8, y: 7 };
@@ -478,7 +622,7 @@ if (algoCanvas) {
 
   // Symmetry Reduction Demo
   // Accurately show how agents are grouped into orbits by role and canonicalized
-  const symmetryScenarios = [
+  symmetryScenarios = [
     {
       // Scenario 1: Initial state with labeled agents
       agents: [
@@ -720,7 +864,7 @@ if (algoCanvas) {
       // Agent 1 (orange) - fetching from shelf
       ctx.fillStyle = "#f08c3a";
       ctx.beginPath();
-      ctx.arc(pA.x + cell/2, pA.y + cell/2, 26, 0, Math.PI * 2);
+      ctx.arc(pA.x + cell/2, pA.y + cell/2, 15, 0, Math.PI * 2);
       ctx.fill();
       ctx.strokeStyle = "#fff";
       ctx.lineWidth = 2;
@@ -734,7 +878,7 @@ if (algoCanvas) {
       // Agent 2 (blue) - fetching from shelf
       ctx.fillStyle = "#4fc3f7";
       ctx.beginPath();
-      ctx.arc(pB.x + cell/2, pB.y + cell/2, 26, 0, Math.PI * 2);
+      ctx.arc(pB.x + cell/2, pB.y + cell/2, 15, 0, Math.PI * 2);
       ctx.fill();
       ctx.strokeStyle = "#fff";
       ctx.lineWidth = 2;
@@ -818,7 +962,7 @@ if (algoCanvas) {
       // Agent 1 (orange)
       ctx.fillStyle = "#f08c3a";
       ctx.beginPath();
-      ctx.arc(pA.x + cell/2, pA.y + cell/2, 26, 0, Math.PI * 2);
+      ctx.arc(pA.x + cell/2, pA.y + cell/2, 15, 0, Math.PI * 2);
       ctx.fill();
       ctx.strokeStyle = "#fff";
       ctx.lineWidth = 2;
@@ -832,7 +976,7 @@ if (algoCanvas) {
       // Agent 2 (blue)
       ctx.fillStyle = "#4fc3f7";
       ctx.beginPath();
-      ctx.arc(pB.x + cell/2, pB.y + cell/2, 26, 0, Math.PI * 2);
+      ctx.arc(pB.x + cell/2, pB.y + cell/2, 15, 0, Math.PI * 2);
       ctx.fill();
       ctx.strokeStyle = "#fff";
       ctx.lineWidth = 2;
@@ -871,20 +1015,20 @@ if (algoCanvas) {
       // Draw orbit borders
       if (agent.orbitA) {
         ctx.strokeStyle = '#4fc3f7';
-        ctx.lineWidth = 3;
+        ctx.lineWidth = 2;
         ctx.strokeRect(p.x - 2, p.y - 2, cell + 4, cell + 4);
       }
       
       if (agent.orbitB) {
         ctx.strokeStyle = '#f08c3a';
-        ctx.lineWidth = 3;
+        ctx.lineWidth = 2;
         ctx.strokeRect(p.x - 2, p.y - 2, cell + 4, cell + 4);
       }
       
       // Draw agent circle
       ctx.fillStyle = color;
       ctx.beginPath();
-      ctx.arc(p.x + cell/2, p.y + cell/2, agent.size === 'large' ? 30 : 26, 0, Math.PI * 2);
+      ctx.arc(p.x + cell/2, p.y + cell/2, agent.size === "large" ? 18 : 15, 0, Math.PI * 2);
       ctx.fill();
       
       // Draw direction arrow or ID
@@ -902,26 +1046,26 @@ if (algoCanvas) {
       // Draw direction below agent for tuple scenarios
       if (agent.dir && agent.showTuple) {
         ctx.fillStyle = 'rgba(255,255,255,0.6)';
-        ctx.font = '16px monospace';
+        ctx.font = '11px monospace';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
-        ctx.fillText(agent.dir, p.x + cell/2, p.y + cell + 5);
+        ctx.fillText(agent.dir, p.x + cell/2, p.y + cell + 3);
       }
     });
     
     // Draw text label (for role info)
     if (scenario.text) {
       ctx.fillStyle = 'rgba(255,255,255,0.95)';
-      ctx.font = 'bold 24px monospace';
+      ctx.font = "bold 13px monospace";
       ctx.textAlign = 'center';
       ctx.textBaseline = 'top';
-      ctx.fillText(scenario.text, algoCanvas.width / 2, 20);
+      ctx.fillText(scenario.text, canvasWidth / 2, 20);
     }
     
     // Draw tuples - positioned in lower section
     if (scenario.tuples) {
       ctx.fillStyle = scenario.sorted ? '#66bb6a' : 'rgba(255,255,255,0.85)';
-      ctx.font = '22px monospace';
+      ctx.font = "14px monospace";
       ctx.textAlign = 'left';
       ctx.textBaseline = 'top';
       
@@ -952,7 +1096,7 @@ if (algoCanvas) {
         ctx.fill();
         
         ctx.fillStyle = '#66bb6a';
-        ctx.font = 'bold 20px monospace';
+        ctx.font = "bold 13px monospace";
         ctx.textAlign = 'center';
         ctx.textBaseline = 'bottom';
         ctx.fillText('SORTED', 50, startY - 32);
@@ -962,38 +1106,38 @@ if (algoCanvas) {
     // Draw state space reduction info
     if (scenario.stateCount) {
       ctx.fillStyle = 'rgba(255,255,255,0.95)';
-      ctx.font = 'bold 26px monospace';
+      ctx.font = "bold 16px monospace";
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(scenario.stateCount, algoCanvas.width / 2, 200);
+      ctx.fillText(scenario.stateCount, canvasWidth / 2, 200);
       
       // Draw arrow
       ctx.strokeStyle = '#66bb6a';
       ctx.lineWidth = 5;
       ctx.beginPath();
-      ctx.moveTo(algoCanvas.width / 2, 230);
-      ctx.lineTo(algoCanvas.width / 2, 280);
+      ctx.moveTo(canvasWidth / 2, 230);
+      ctx.lineTo(canvasWidth / 2, 280);
       ctx.stroke();
       
       // Draw arrowhead
       ctx.beginPath();
-      ctx.moveTo(algoCanvas.width / 2, 280);
-      ctx.lineTo(algoCanvas.width / 2 - 12, 265);
-      ctx.lineTo(algoCanvas.width / 2 + 12, 265);
+      ctx.moveTo(canvasWidth / 2, 280);
+      ctx.lineTo(canvasWidth / 2 - 12, 265);
+      ctx.lineTo(canvasWidth / 2 + 12, 265);
       ctx.closePath();
       ctx.fillStyle = '#66bb6a';
       ctx.fill();
       
       ctx.fillStyle = '#66bb6a';
-      ctx.font = 'bold 26px monospace';
-      ctx.fillText(scenario.quotientCount, algoCanvas.width / 2, 315);
+      ctx.font = "bold 16px monospace";
+      ctx.fillText(scenario.quotientCount, canvasWidth / 2, 315);
     }
     
     algoCaption.textContent = scenario.caption;
   }
 
   // Quotient State Comparison scenarios
-  const quotientComparisonScenarios = [
+  quotientComparisonScenarios = [
     {
       agents: [
         { x: 1, y: 1, id: 'A' },
@@ -1018,7 +1162,7 @@ if (algoCanvas) {
   ];
 
   // Verification Demo scenarios
-  const verificationScenarios = [
+  verificationScenarios = [
     {
       obstacles: [
         { x: 3, y: 3 },
@@ -1043,8 +1187,7 @@ if (algoCanvas) {
     },
   ];
 
-  // Refinement Demo scenarios - showing constraint generation and path replanning
-  const refinementScenarios = [
+  refinementScenarios = [
     {
       unsafe: true,
       path: [
@@ -1080,7 +1223,8 @@ if (algoCanvas) {
   ];
 
   function drawQuotientComparison() {
-    const scenario = quotientComparisonScenarios[tick];
+    const scenarioIndex = tick % quotientComparisonScenarios.length;
+    const scenario = quotientComparisonScenarios[scenarioIndex];
     
     scenario.agents.forEach((agent) => {
       const p = toCell(agent.x, agent.y);
@@ -1088,12 +1232,12 @@ if (algoCanvas) {
       // Draw agent circle
       ctx.fillStyle = "#4fc3f7";
       ctx.beginPath();
-      ctx.arc(p.x + cell/2, p.y + cell/2, 26, 0, Math.PI * 2);
+      ctx.arc(p.x + cell/2, p.y + cell/2, 15, 0, Math.PI * 2);
       ctx.fill();
       
       // Draw agent ID
       ctx.fillStyle = "#fff";
-      ctx.font = 'bold 18px monospace';
+      ctx.font = "bold 12px monospace";
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(agent.id, p.x + cell/2, p.y + cell/2);
@@ -1103,7 +1247,8 @@ if (algoCanvas) {
   }
 
   function drawVerification() {
-    const scenario = verificationScenarios[tick];
+    const scenarioIndex = tick % verificationScenarios.length;
+    const scenario = verificationScenarios[scenarioIndex];
     
     // Draw obstacles
     scenario.obstacles.forEach((obs) => {
@@ -1122,12 +1267,12 @@ if (algoCanvas) {
       // Draw agent circle
       ctx.fillStyle = agent.stopped ? "#ef5350" : "#4fc3f7";
       ctx.beginPath();
-      ctx.arc(p.x + cell/2, p.y + cell/2, 26, 0, Math.PI * 2);
+      ctx.arc(p.x + cell/2, p.y + cell/2, 15, 0, Math.PI * 2);
       ctx.fill();
       
       // Draw agent ID
       ctx.fillStyle = "#fff";
-      ctx.font = 'bold 18px monospace';
+      ctx.font = "bold 12px monospace";
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(agent.id, p.x + cell/2, p.y + cell/2);
@@ -1137,7 +1282,8 @@ if (algoCanvas) {
   }
 
   function drawRefinement() {
-    const scenario = refinementScenarios[tick];
+    const scenarioIndex = tick % refinementScenarios.length;
+    const scenario = refinementScenarios[scenarioIndex];
     
     // Draw path cells
     scenario.path.forEach((p, i) => {
@@ -1166,18 +1312,18 @@ if (algoCanvas) {
     });
     
     // Draw current agent position
-    const current = scenario.path[Math.min(tick, scenario.path.length - 1)];
+    const current = scenario.path[0];
     const pCurrent = toCell(current.x, current.y);
     
     ctx.fillStyle = scenario.unsafe ? "#ef5350" : "#66bb6a";
     ctx.beginPath();
-    ctx.arc(pCurrent.x + cell/2, pCurrent.y + cell/2, 20, 0, Math.PI * 2);
+    ctx.arc(pCurrent.x + cell/2, pCurrent.y + cell/2, 12, 0, Math.PI * 2);
     ctx.fill();
     ctx.strokeStyle = "#fff";
     ctx.lineWidth = 3;
     ctx.stroke();
     ctx.fillStyle = "#fff";
-    ctx.font = 'bold 18px monospace';
+    ctx.font = "bold 12px monospace";
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText("A", pCurrent.x + cell/2, pCurrent.y + cell/2);
@@ -1207,15 +1353,19 @@ if (algoCanvas) {
     ctx.font = "bold 16px monospace";
     ctx.textAlign = "center";
     ctx.textBaseline = "top";
-    ctx.fillText(scenario.unsafe ? "Status: UNSAFE" : "Status: SAFE", algoCanvas.width / 2, 15);
+    ctx.fillText(scenario.unsafe ? "Status: UNSAFE" : "Status: SAFE", canvasWidth / 2, 15);
     
     algoCaption.textContent = scenario.caption;
   }
 
   function renderAlgo() {
-    ctx.clearRect(0, 0, algoCanvas.width, algoCanvas.height);
+    const size = updateAlgoLayout();
+    if (!size.width || !size.height) {
+      return;
+    }
+    ctx.clearRect(0, 0, canvasWidth, canvasHeight);
     ctx.fillStyle = "#0f1318";
-    ctx.fillRect(0, 0, algoCanvas.width, algoCanvas.height);
+    ctx.fillRect(0, 0, canvasWidth, canvasHeight);
     
     if (algoMode !== "symmetry") {
       drawGrid();
@@ -1269,8 +1419,546 @@ if (algoCanvas) {
       btn.classList.add("is-active");
       algoMode = btn.dataset.algo;
       tick = 0;
+      lastAlgoTick = 0;
+      
+      // Update caption immediately on mode change
+      if (algoCaption) {
+        if (algoMode === "astar") {
+          algoCaption.textContent = "A*: frontier expansion (blue) and final path (amber).";
+        } else if (algoMode === "cbs") {
+          algoCaption.textContent = "CBS Phase 1: Agents moving to shelves - conflicting paths detected.";
+        } else if (algoMode === "symmetry") {
+          algoCaption.textContent = symmetryScenarios[0].caption;
+        } else if (algoMode === "quotient") {
+          algoCaption.textContent = quotientComparisonScenarios[0].caption;
+        } else if (algoMode === "verification") {
+          algoCaption.textContent = verificationScenarios[0].caption;
+        } else if (algoMode === "refinement") {
+          algoCaption.textContent = refinementScenarios[0].caption;
+        }
+      }
+      renderAlgo(); // Immediately render new mode
     });
   });
 
+  // Initialize with first render
+  renderAlgo();
   requestAnimationFrame(algoTick);
+}
+
+// ==================== Symmetry Canvas Setup ====================
+const symmetryCanvas = document.getElementById("symmetryCanvas");
+const symmetryCaption = document.getElementById("symmetryCaption");
+const symmetrySection = document.getElementById("symmetry");
+const symmetryButtons = symmetrySection
+  ? symmetrySection.querySelectorAll("[data-algo='symmetry'], [data-algo='quotient']")
+  : [];
+const symmetrySurface = symmetryCanvas ? createHiResCanvas(symmetryCanvas) : null;
+
+console.log('symmetryCanvas:', symmetryCanvas, 'symmetryCaption:', symmetryCaption);
+
+if (symmetryCanvas) {
+  console.log('Initializing symmetryCanvas...');
+  const sctx = symmetrySurface.ctx;
+  const sgrid = 10;
+  const scell = 32;
+  let sWidth = 0;
+  let sHeight = 0;
+  let soffsetX = 0;
+  let soffsetY = 0;
+  let sMode = "symmetry";
+  let sTickCount = 0;
+  let sLastTick = 0;
+
+  function updateSymmetryLayout() {
+    const size = symmetrySurface.resize();
+    sWidth = size.width;
+    sHeight = size.height;
+    soffsetX = (sWidth - sgrid * scell) / 2;
+    soffsetY = (sHeight - sgrid * scell) / 2;
+    return size;
+  }
+  
+  function sToCell(px, py) {
+    return {
+      x: soffsetX + px * scell,
+      y: soffsetY + py * scell,
+    };
+  }
+  
+  function sDrawGrid() {
+    sctx.strokeStyle = "rgba(255,255,255,0.08)";
+    for (let i = 0; i <= sgrid; i++) {
+      const x = soffsetX + i * scell;
+      sctx.beginPath();
+      sctx.moveTo(x, soffsetY);
+      sctx.lineTo(x, soffsetY + sgrid * scell);
+      sctx.stroke();
+      const y = soffsetY + i * scell;
+      sctx.beginPath();
+      sctx.moveTo(soffsetX, y);
+      sctx.lineTo(soffsetX + sgrid * scell, y);
+      sctx.stroke();
+    }
+  }
+  
+  function sRenderSymmetry() {
+    sctx.clearRect(0, 0, sWidth, sHeight);
+    sctx.fillStyle = "#0f1318";
+    sctx.fillRect(0, 0, sWidth, sHeight);
+    
+    const scenarioIndex = sTickCount % symmetryScenarios.length;
+    const scenario = symmetryScenarios[scenarioIndex];
+    
+    // Draw agents
+    scenario.agents.forEach((agent) => {
+      const p = sToCell(agent.x, agent.y);
+      
+      let color = agent.role === 'carrying' ? '#f08c3a' : '#4fc3f7';
+      
+      if (agent.highlight) {
+        sctx.fillStyle = 'rgba(102,187,106,0.3)';
+        sctx.fillRect(p.x - 2, p.y - 2, scell + 4, scell + 4);
+      }
+      
+      if (agent.orbitA) {
+        sctx.strokeStyle = '#4fc3f7';
+        sctx.lineWidth = 2;
+        sctx.strokeRect(p.x - 2, p.y - 2, scell + 4, scell + 4);
+      }
+      
+      if (agent.orbitB) {
+        sctx.strokeStyle = '#f08c3a';
+        sctx.lineWidth = 2;
+        sctx.strokeRect(p.x - 2, p.y - 2, scell + 4, scell + 4);
+      }
+      
+      sctx.fillStyle = color;
+      sctx.beginPath();
+      sctx.arc(p.x + scell/2, p.y + scell/2, agent.size === "large" ? 18 : 15, 0, Math.PI * 2);
+      sctx.fill();
+      
+      sctx.fillStyle = '#fff';
+      sctx.font = "bold 13px monospace";
+      sctx.textAlign = 'center';
+      sctx.textBaseline = 'middle';
+      sctx.fillText(agent.id, p.x + scell/2, p.y + scell/2);
+    });
+    
+    if (scenario.text) {
+      sctx.fillStyle = 'rgba(255,255,255,0.95)';
+      sctx.font = "bold 13px monospace";
+      sctx.textAlign = 'center';
+      sctx.textBaseline = 'top';
+      sctx.fillText(scenario.text, sWidth / 2, 20);
+    }
+    
+    if (scenario.tuples) {
+      sctx.fillStyle = scenario.sorted ? '#66bb6a' : 'rgba(255,255,255,0.85)';
+      sctx.font = "14px monospace";
+      sctx.textAlign = 'left';
+      sctx.textBaseline = 'top';
+      
+      const startX = 80;
+      const startY = 450;
+      
+      scenario.tuples.forEach((tuple, i) => {
+        const y = startY + i * 38;
+        sctx.fillText(tuple, startX, y);
+      });
+      
+      if (scenario.sorted) {
+        sctx.strokeStyle = '#66bb6a';
+        sctx.lineWidth = 4;
+        sctx.beginPath();
+        sctx.moveTo(50, startY - 25);
+        sctx.lineTo(50, startY - 5);
+        sctx.stroke();
+        
+        sctx.beginPath();
+        sctx.moveTo(50, startY - 5);
+        sctx.lineTo(44, startY - 15);
+        sctx.lineTo(56, startY - 15);
+        sctx.closePath();
+        sctx.fillStyle = '#66bb6a';
+        sctx.fill();
+        
+        sctx.fillStyle = '#66bb6a';
+        sctx.font = "bold 13px monospace";
+        sctx.textAlign = 'center';
+        sctx.textBaseline = 'bottom';
+        sctx.fillText('SORTED', 50, startY - 32);
+      }
+    }
+    
+    if (scenario.stateCount) {
+      sctx.fillStyle = 'rgba(255,255,255,0.95)';
+      sctx.font = "bold 16px monospace";
+      sctx.textAlign = 'center';
+      sctx.textBaseline = 'middle';
+      sctx.fillText(scenario.stateCount, sWidth / 2, 200);
+      
+      sctx.strokeStyle = '#66bb6a';
+      sctx.lineWidth = 5;
+      sctx.beginPath();
+      sctx.moveTo(sWidth / 2, 230);
+      sctx.lineTo(sWidth / 2, 280);
+      sctx.stroke();
+      
+      sctx.beginPath();
+      sctx.moveTo(sWidth / 2, 280);
+      sctx.lineTo(sWidth / 2 - 12, 265);
+      sctx.lineTo(sWidth / 2 + 12, 265);
+      sctx.closePath();
+      sctx.fillStyle = '#66bb6a';
+      sctx.fill();
+      
+      sctx.fillStyle = '#66bb6a';
+      sctx.font = "bold 16px monospace";
+      sctx.fillText(scenario.quotientCount, sWidth / 2, 315);
+    }
+    
+    if (symmetryCaption) {
+      symmetryCaption.textContent = scenario.caption;
+    }
+  }
+  
+  function sRenderQuotient() {
+    sctx.clearRect(0, 0, sWidth, sHeight);
+    sctx.fillStyle = "#0f1318";
+    sctx.fillRect(0, 0, sWidth, sHeight);
+    
+    sDrawGrid();
+    
+    const scenarioIndex = sTickCount % quotientComparisonScenarios.length;
+    const scenario = quotientComparisonScenarios[scenarioIndex];
+    
+    scenario.agents.forEach((agent) => {
+      const p = sToCell(agent.x, agent.y);
+      
+      sctx.fillStyle = "#4fc3f7";
+      sctx.beginPath();
+      sctx.arc(p.x + scell/2, p.y + scell/2, 15, 0, Math.PI * 2);
+      sctx.fill();
+      
+      sctx.fillStyle = "#fff";
+      sctx.font = "bold 12px monospace";
+      sctx.textAlign = 'center';
+      sctx.textBaseline = 'middle';
+      sctx.fillText(agent.id, p.x + scell/2, p.y + scell/2);
+    });
+    
+    if (symmetryCaption) {
+      symmetryCaption.textContent = scenario.caption;
+    }
+  }
+  
+  function sRender() {
+    const size = updateSymmetryLayout();
+    if (!size.width || !size.height) {
+      return;
+    }
+    if (sMode === "symmetry") {
+      sRenderSymmetry();
+    } else if (sMode === "quotient") {
+      sRenderQuotient();
+    }
+  }
+  
+  function sAnimationLoop(ts) {
+    if (!sLastTick) sLastTick = ts;
+    const elapsed = ts - sLastTick;
+    
+    const delay = sMode === "symmetry" ? 6000 : 3500;
+    
+    if (elapsed > delay) {
+      const maxTick = sMode === "symmetry" ? symmetryScenarios.length : quotientComparisonScenarios.length;
+      sTickCount = (sTickCount + 1) % maxTick;
+      sLastTick = ts;
+    }
+    sRender();
+    requestAnimationFrame(sAnimationLoop);
+  }
+  
+  // Handle button clicks
+  symmetryButtons.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      sMode = btn.dataset.algo;
+      sTickCount = 0;
+      sLastTick = 0;
+      sRender();
+    });
+  });
+  
+  sRender();
+  requestAnimationFrame(sAnimationLoop);
+}
+
+// ==================== Verification Canvas Setup ====================
+const verifyCanvas = document.getElementById("verifyCanvas");
+const verifyCaption = document.getElementById("verifyCaption");
+const verifySection = document.getElementById("verification");
+const verifyButtons = verifySection
+  ? verifySection.querySelectorAll("[data-algo='verification'], [data-algo='refinement']")
+  : [];
+const verifySurface = verifyCanvas ? createHiResCanvas(verifyCanvas) : null;
+
+console.log('verifyCanvas:', verifyCanvas, 'verifyCaption:', verifyCaption);
+
+if (verifyCanvas) {
+  console.log('Initializing verifyCanvas...');
+  const vctx = verifySurface.ctx;
+  const vgrid = 10;
+  let vcell = 32;
+  let vWidth = 0;
+  let vHeight = 0;
+  let voffsetX = 0;
+  let voffsetY = 0;
+  let vHeaderY = 0;
+  let vFooterY = 0;
+  let vHeaderHeight = 0;
+  let vFooterHeight = 0;
+  let vPadding = 0;
+  let vLegendX = 0;
+  let vLegendY = 0;
+  let vLegendWidth = 0;
+  let vMode = "verification";
+  let vTickCount = 0;
+  let vLastTick = 0;
+  let vTime = 0;
+  let vScenarioStart = 0;
+
+  function updateVerifyLayout() {
+    const size = verifySurface.resize();
+    vWidth = size.width;
+    vHeight = size.height;
+    vPadding = 0;
+    vHeaderHeight = 0;
+    vFooterHeight = 0;
+    vLegendWidth = 0;
+
+    const maxCell = 32;
+    vcell = Math.max(18, Math.min(maxCell, Math.floor(Math.min(vWidth, vHeight) / vgrid)));
+    const gridWidth = vcell * vgrid;
+    const gridHeight = vcell * vgrid;
+
+    voffsetX = Math.max(0, (vWidth - gridWidth) / 2);
+    voffsetY = Math.max(0, (vHeight - gridHeight) / 2);
+
+    vHeaderY = 0;
+    vFooterY = vHeight;
+    vLegendX = 0;
+    vLegendY = 0;
+    return size;
+  }
+  
+  function vToCell(px, py) {
+    return {
+      x: voffsetX + px * vcell,
+      y: voffsetY + py * vcell,
+    };
+  }
+  
+  function vDrawGrid() {
+    vctx.strokeStyle = "rgba(255,255,255,0.08)";
+    for (let i = 0; i <= vgrid; i++) {
+      const x = voffsetX + i * vcell;
+      vctx.beginPath();
+      vctx.moveTo(x, voffsetY);
+      vctx.lineTo(x, voffsetY + vgrid * vcell);
+      vctx.stroke();
+      const y = voffsetY + i * vcell;
+      vctx.beginPath();
+      vctx.moveTo(voffsetX, y);
+      vctx.lineTo(voffsetX + vgrid * vcell, y);
+      vctx.stroke();
+    }
+  }
+
+  function vRoundRect(x, y, w, h, r) {
+    if (typeof vctx.roundRect === "function") {
+      vctx.beginPath();
+      vctx.roundRect(x, y, w, h, r);
+      return;
+    }
+    const radius = Math.min(r, w / 2, h / 2);
+    vctx.beginPath();
+    vctx.moveTo(x + radius, y);
+    vctx.lineTo(x + w - radius, y);
+    vctx.quadraticCurveTo(x + w, y, x + w, y + radius);
+    vctx.lineTo(x + w, y + h - radius);
+    vctx.quadraticCurveTo(x + w, y + h, x + w - radius, y + h);
+    vctx.lineTo(x + radius, y + h);
+    vctx.quadraticCurveTo(x, y + h, x, y + h - radius);
+    vctx.lineTo(x, y + radius);
+    vctx.quadraticCurveTo(x, y, x + radius, y);
+  }
+  
+  function vRenderVerification() {
+    vctx.clearRect(0, 0, vWidth, vHeight);
+    vctx.fillStyle = "#0f1318";
+    vctx.fillRect(0, 0, vWidth, vHeight);
+
+    vDrawGrid();
+    
+    const scenarioIndex = vTickCount % verificationScenarios.length;
+    const scenario = verificationScenarios[scenarioIndex];
+    
+    scenario.obstacles.forEach((obs) => {
+      const p = vToCell(obs.x, obs.y);
+      vctx.fillStyle = "#555";
+      vctx.strokeStyle = "#888";
+      vctx.lineWidth = 2;
+      vctx.fillRect(p.x + 4, p.y + 4, vcell - 8, vcell - 8);
+      vctx.strokeRect(p.x + 4, p.y + 4, vcell - 8, vcell - 8);
+    });
+    
+    scenario.agents.forEach((agent) => {
+      const p = vToCell(agent.x, agent.y);
+      
+      vctx.fillStyle = agent.stopped ? "#ef5350" : "#4fc3f7";
+      vctx.beginPath();
+      vctx.arc(p.x + vcell/2, p.y + vcell/2, 15, 0, Math.PI * 2);
+      vctx.fill();
+      
+      vctx.fillStyle = "#fff";
+      vctx.font = "bold 12px monospace";
+      vctx.textAlign = 'center';
+      vctx.textBaseline = 'middle';
+      vctx.fillText(agent.id, p.x + vcell/2, p.y + vcell/2);
+    });
+    
+    if (verifyCaption) {
+      verifyCaption.textContent = scenario.caption;
+    }
+  }
+  
+  function vRenderRefinement() {
+    vctx.clearRect(0, 0, vWidth, vHeight);
+    vctx.fillStyle = "#0f1318";
+    vctx.fillRect(0, 0, vWidth, vHeight);
+
+    vDrawGrid();
+    
+    const scenarioIndex = vTickCount % refinementScenarios.length;
+    const scenario = refinementScenarios[scenarioIndex];
+
+    const stepDelay = 450;
+    const stepIndex = Math.min(
+      Math.floor((vTime - vScenarioStart) / stepDelay),
+      scenario.path.length - 1
+    );
+
+    // Draw path line
+    vctx.strokeStyle = scenario.unsafe ? "rgba(239,83,80,0.6)" : "rgba(102,187,106,0.55)";
+    vctx.lineWidth = Math.max(2, vcell * 0.12);
+    vctx.lineCap = "round";
+    vctx.lineJoin = "round";
+    vctx.beginPath();
+    scenario.path.forEach((p, i) => {
+      const cellPos = vToCell(p.x, p.y);
+      const cx = cellPos.x + vcell / 2;
+      const cy = cellPos.y + vcell / 2;
+      if (i === 0) {
+        vctx.moveTo(cx, cy);
+      } else {
+        vctx.lineTo(cx, cy);
+      }
+    });
+    vctx.stroke();
+
+    // Draw step markers
+    scenario.path.forEach((p, i) => {
+      const cellPos = vToCell(p.x, p.y);
+      const cx = cellPos.x + vcell / 2;
+      const cy = cellPos.y + vcell / 2;
+      const isActive = i === stepIndex;
+      vctx.fillStyle = isActive ? "#ffffff" : "rgba(255,255,255,0.4)";
+      vctx.beginPath();
+      vctx.arc(cx, cy, isActive ? Math.max(6, vcell * 0.2) : Math.max(3, vcell * 0.12), 0, Math.PI * 2);
+      vctx.fill();
+
+    });
+
+    const current = scenario.path[Math.max(0, stepIndex)];
+    const pCurrent = vToCell(current.x, current.y);
+
+    vctx.fillStyle = scenario.unsafe ? "#ef5350" : "#66bb6a";
+    vctx.beginPath();
+    vctx.arc(pCurrent.x + vcell / 2, pCurrent.y + vcell / 2, Math.max(10, vcell * 0.3), 0, Math.PI * 2);
+    vctx.fill();
+    vctx.strokeStyle = "rgba(255,255,255,0.9)";
+    vctx.lineWidth = 2.5;
+    vctx.stroke();
+    vctx.fillStyle = "#0f1318";
+    vctx.font = "700 12px 'Space Grotesk', sans-serif";
+    vctx.textAlign = "center";
+    vctx.textBaseline = "middle";
+    vctx.fillText("A", pCurrent.x + vcell / 2, pCurrent.y + vcell / 2);
+    
+    if (scenario.constraint) {
+      const pConstraint = vToCell(scenario.constraint.x, scenario.constraint.y);
+
+      vctx.fillStyle = "rgba(255,152,0,0.12)";
+      vctx.fillRect(pConstraint.x + 2, pConstraint.y + 2, vcell - 4, vcell - 4);
+      vctx.strokeStyle = "#ffb74d";
+      vctx.lineWidth = 2.5;
+      vctx.setLineDash([6, 4]);
+      vctx.strokeRect(pConstraint.x + 2, pConstraint.y + 2, vcell - 4, vcell - 4);
+      vctx.setLineDash([]);
+
+    }
+    
+    if (verifyCaption) {
+      verifyCaption.textContent = scenario.caption;
+    }
+  }
+  
+  function vRender() {
+    const size = updateVerifyLayout();
+    if (!size.width || !size.height) {
+      return;
+    }
+    if (vMode === "verification") {
+      vRenderVerification();
+    } else if (vMode === "refinement") {
+      vRenderRefinement();
+    }
+  }
+  
+  function vAnimationLoop(ts) {
+    vTime = ts;
+    if (!vLastTick) {
+      vLastTick = ts;
+      if (!vScenarioStart) {
+        vScenarioStart = ts;
+      }
+    }
+    const elapsed = ts - vLastTick;
+    
+    const delay = 3000;
+    
+    if (elapsed > delay) {
+      const maxTick = vMode === "verification" ? verificationScenarios.length : refinementScenarios.length;
+      vTickCount = (vTickCount + 1) % maxTick;
+      vLastTick = ts;
+      vScenarioStart = ts;
+    }
+    vRender();
+    requestAnimationFrame(vAnimationLoop);
+  }
+  
+  // Handle button clicks
+  verifyButtons.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      vMode = btn.dataset.algo;
+      vTickCount = 0;
+      vLastTick = 0;
+      vScenarioStart = performance.now();
+      vRender();
+    });
+  });
+  
+  vRender();
+  requestAnimationFrame(vAnimationLoop);
 }
