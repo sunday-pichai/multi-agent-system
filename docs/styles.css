@@ -9,8 +9,93 @@
   --grid: rgba(30, 36, 43, 0.08);
 }
 
+/* Dark Mode */
+body.dark-mode {
+  --bg: #1a1a1a;
+  --ink: #f5f5f5;
+  --muted: #b0b0b0;
+  --accent: #ff6b4a;
+  --accent-dark: #e55a39;
+  --card: #2a2a2a;
+  --shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+  --grid: rgba(255, 255, 255, 0.08);
+}
+
+body.dark-mode .hero {
+  background: linear-gradient(135deg, #0d0d0d 0%, #1a1a1a 50%, #0f0f0f 100%);
+}
+
+body.dark-mode .section--split {
+  background: #1f1f1f;
+}
+
+body.dark-mode .codeblock {
+  background: #0a0a0a;
+  color: #e3e7ec;
+}
+
+body.dark-mode .note code {
+  background: #2a2a2a;
+  color: #ff8c66;
+}
+
+body.dark-mode .grid__item {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+body.dark-mode .flow__step {
+  background: #2a2a2a;
+  color: #f5f5f5;
+}
+
+body.dark-mode #flowChart,
+body.dark-mode #algoCanvas,
+body.dark-mode #flowCanvas {
+  background: #0f1318;
+}
+
+body.dark-mode .footer {
+  background: #0a0a0a;
+  color: #b0b0b0;
+}
+
 * {
   box-sizing: border-box;
+}
+
+.dark-mode-toggle {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 9999;
+  background: var(--card);
+  border: 2px solid var(--accent);
+  color: var(--accent);
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow);
+  transition: all 0.3s ease;
+}
+
+.dark-mode-toggle:hover {
+  transform: scale(1.1);
+  box-shadow: 0 0 20px rgba(200, 93, 61, 0.3);
+}
+
+body.dark-mode .dark-mode-toggle {
+  background: var(--card);
+  color: #ffd700;
+  border-color: #ffd700;
+}
+
+body.dark-mode .dark-mode-toggle:hover {
+  box-shadow: 0 0 20px rgba(255, 215, 0, 0.3);
 }
 
 body {
@@ -19,6 +104,7 @@ body {
   color: var(--ink);
   background: var(--bg);
   font-size: 16px;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 h1, h2, h3 {
@@ -49,6 +135,7 @@ p {
   padding: 90px 0 80px;
   overflow: hidden;
   background: radial-gradient(circle at 20% 20%, #fff9f3, #f2eee8 60%, #ede7df);
+  transition: background 0.3s ease;
 }
 
 .hero__grid {
@@ -96,6 +183,7 @@ p {
   border-radius: 999px;
   box-shadow: var(--shadow);
   font-weight: 600;
+  transition: background-color 0.3s ease, box-shadow 0.3s ease;
 }
 
 .btn--ghost {
@@ -159,6 +247,7 @@ p {
   padding: 24px;
   border-radius: 18px;
   box-shadow: var(--shadow);
+  transition: background-color 0.3s ease, box-shadow 0.3s ease;
 }
 
 .video {

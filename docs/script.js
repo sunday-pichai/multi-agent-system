@@ -1,3 +1,21 @@
+// Dark mode toggle functionality
+const darkModeToggle = document.getElementById("darkModeToggle");
+if (darkModeToggle) {
+  // Check for saved dark mode preference or default to light mode
+  const savedDarkMode = localStorage.getItem("darkMode") === "true";
+  if (savedDarkMode) {
+    document.body.classList.add("dark-mode");
+    darkModeToggle.textContent = "☀️";
+  }
+
+  darkModeToggle.addEventListener("click", () => {
+    document.body.classList.toggle("dark-mode");
+    const isDarkMode = document.body.classList.contains("dark-mode");
+    localStorage.setItem("darkMode", isDarkMode);
+    darkModeToggle.textContent = isDarkMode ? "☀️" : "🌙";
+  });
+}
+
 const steps = {
   plan: {
     title: "Plan (Cooperative A* + CBS)",
