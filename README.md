@@ -48,7 +48,7 @@ Interactive documentation is available at [docs/index.html](docs/index.html). Op
 1. Clone or download this repository
 2. Navigate to the project directory:
    ```bash
-   cd MAS_FinalProject
+   cd multi-agent-system
    ```
 3. Install required dependencies:
    ```bash
