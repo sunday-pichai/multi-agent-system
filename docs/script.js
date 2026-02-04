@@ -164,188 +164,217 @@ flowButtons.forEach((btn) => {
 
 updateFlow("plan");
 
-// Canvas interactive explainer
+// Canvas interactive explainer - minimal design
 const canvas = document.getElementById("flowCanvas");
 const caption = document.getElementById("canvasCaption");
 const modeButtons = document.querySelectorAll(".chip");
-const playBtn = document.getElementById("playBtn");
-const stepBtn = document.getElementById("stepBtn");
-const resetBtn = document.getElementById("resetBtn");
 
 if (canvas) {
   const ctx = canvas.getContext("2d");
   const W = canvas.width;
   const H = canvas.height;
 
-  const gridSize = 8;
-  const cell = 40;
-  const margin = 20;
-  const gridW = gridSize * cell;
-  const gridH = gridSize * cell;
-  const gridX = (W - gridW) / 2;
-  const gridY = (H - gridH) / 2;
+  // Simplified grid - 6x4
+  const gridSize = 6;
+  const cellSize = 50;
+  const gridX = (W - gridSize * cellSize) / 2;
+  const gridY = (H - 4 * cellSize) / 2;
 
-  const baseAgents = [
-    { id: 0, x: 1, y: 1, dir: 1, group: 0 },
-    { id: 1, x: 1, y: 6, dir: 1, group: 0 },
-    { id: 2, x: 3, y: 2, dir: 1, group: 1 },
-    { id: 3, x: 3, y: 5, dir: 1, group: 1 },
+  // Minimal agent data - 2 agents with original and refined paths
+  const agent1PathOriginal = [
+    { x: 0, y: 1 }, { x: 1, y: 1 }, { x: 2, y: 1 }, { x: 3, y: 1 }, { x: 4, y: 1 }, { x: 5, y: 1 }
+  ];
+  const agent2PathOriginal = [
+    { x: 0, y: 2 }, { x: 1, y: 2 }, { x: 2, y: 2 }, { x: 3, y: 2 }, { x: 4, y: 2 }, { x: 5, y: 2 }
+  ];
+  
+  // Refined paths that avoid conflict zone
+  const agent1PathRefined = [
+    { x: 0, y: 1 }, { x: 1, y: 1 }, { x: 2, y: 0 }, { x: 3, y: 0 }, { x: 4, y: 1 }, { x: 5, y: 1 }
+  ];
+  const agent2PathRefined = [
+    { x: 0, y: 2 }, { x: 1, y: 2 }, { x: 2, y: 3 }, { x: 3, y: 3 }, { x: 4, y: 2 }, { x: 5, y: 2 }
   ];
 
-  const shelves = [
-    { x: 2, y: 3 }, { x: 2, y: 4 }, { x: 4, y: 3 }, { x: 4, y: 4 },
+  // Verify paths - agents stop before hitting obstacle
+  const agent1PathVerify = [
+    { x: 0, y: 1 }, { x: 1, y: 1 }
   ];
-
-  const goals = [
-    { x: 6, y: 2 },
-    { x: 6, y: 5 },
+  const agent2PathVerify = [
+    { x: 0, y: 2 }, { x: 1, y: 2 }
   ];
-
-  const paths = {
-    0: [{ x: 1, y: 1 }, { x: 2, y: 1 }, { x: 3, y: 1 }, { x: 4, y: 1 }, { x: 5, y: 1 }, { x: 6, y: 1 }, { x: 6, y: 2 }],
-    1: [{ x: 1, y: 6 }, { x: 2, y: 6 }, { x: 3, y: 6 }, { x: 4, y: 6 }, { x: 5, y: 6 }, { x: 6, y: 6 }, { x: 6, y: 5 }],
-    2: [{ x: 3, y: 2 }, { x: 3, y: 3 }, { x: 3, y: 4 }, { x: 4, y: 4 }, { x: 5, y: 4 }, { x: 6, y: 4 }, { x: 6, y: 5 }],
-    3: [{ x: 3, y: 5 }, { x: 3, y: 4 }, { x: 3, y: 3 }, { x: 4, y: 3 }, { x: 5, y: 3 }, { x: 6, y: 3 }, { x: 6, y: 2 }],
-  };
 
   let mode = "plan";
   let stepIndex = 0;
-  let playing = false;
+  let playing = true;
   let lastTick = 0;
 
-  function toPx(pos) {
+  function toPx(gx, gy) {
     return {
-      x: gridX + pos.x * cell + cell / 2,
-      y: gridY + pos.y * cell + cell / 2,
+      x: gridX + gx * cellSize + cellSize / 2,
+      y: gridY + gy * cellSize + cellSize / 2,
     };
   }
 
-  function drawGrid() {
-    ctx.strokeStyle = "rgba(255,255,255,0.08)";
-    for (let x = gridX; x <= gridX + gridW; x += cell) {
+  function drawMinimalGrid() {
+    ctx.strokeStyle = "rgba(255,255,255,0.1)";
+    ctx.lineWidth = 1;
+    for (let i = 0; i <= gridSize; i++) {
       ctx.beginPath();
-      ctx.moveTo(x, 0);
-      ctx.lineTo(x, H);
+      ctx.moveTo(gridX + i * cellSize, gridY);
+      ctx.lineTo(gridX + i * cellSize, gridY + 4 * cellSize);
       ctx.stroke();
     }
-    for (let y = gridY; y <= gridY + gridH; y += cell) {
+    for (let j = 0; j <= 4; j++) {
       ctx.beginPath();
-      ctx.moveTo(0, y);
-      ctx.lineTo(W, y);
+      ctx.moveTo(gridX, gridY + j * cellSize);
+      ctx.lineTo(gridX + gridSize * cellSize, gridY + j * cellSize);
       ctx.stroke();
     }
   }
 
-  function drawShelves() {
-    shelves.forEach((s) => {
-      const p = toPx(s);
-      ctx.fillStyle = "#2aa775";
-      ctx.fillRect(p.x - 10, p.y - 10, 20, 20);
-    });
-  }
-
-  function drawGoals() {
-    ctx.fillStyle = "#44546a";
-    goals.forEach((g) => {
-      const p = toPx(g);
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, 8, 0, Math.PI * 2);
-      ctx.fill();
-    });
-  }
-
-  function drawAgents(highlightGroups) {
-    baseAgents.forEach((a) => {
-      const path = paths[a.id];
-      const pos = path[Math.min(stepIndex, path.length - 1)];
-      const p = toPx(pos);
-      ctx.fillStyle = "#f08c3a";
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, 12, 0, Math.PI * 2);
-      ctx.fill();
-      if (highlightGroups) {
-        const stroke = a.group === 0 ? "#4fc3f7" : "#ffd166";
-        ctx.strokeStyle = stroke;
-        ctx.lineWidth = 3;
-        ctx.stroke();
-      }
-
-      ctx.fillStyle = "#0f1318";
-      ctx.beginPath();
-      ctx.moveTo(p.x + 6, p.y);
-      ctx.lineTo(p.x - 4, p.y - 4);
-      ctx.lineTo(p.x - 4, p.y + 4);
-      ctx.fill();
-    });
-  }
-
-  function drawPaths() {
-    ctx.strokeStyle = "rgba(240,140,58,0.6)";
+  function drawPath(path, color, opacity = 0.5) {
+    ctx.strokeStyle = color;
+    ctx.globalAlpha = opacity;
     ctx.lineWidth = 2;
-    baseAgents.forEach((a) => {
-      const path = paths[a.id];
-      ctx.beginPath();
-      const start = toPx(path[0]);
-      ctx.moveTo(start.x, start.y);
-      for (let k = 1; k < path.length; k += 1) {
-        const p = toPx(path[k]);
-        ctx.lineTo(p.x, p.y);
-      }
-      ctx.stroke();
-    });
-  }
-
-  function drawVerification() {
-    ctx.strokeStyle = "#ef5350";
-    ctx.lineWidth = 3;
-    const p = toPx({ x: 3, y: 3 });
-    ctx.strokeRect(p.x - 20, p.y - 20, 40, 40);
-  }
-
-  function drawRefinement() {
-    ctx.strokeStyle = "#66bb6a";
-    ctx.lineWidth = 4;
+    ctx.setLineDash([4, 4]);
     ctx.beginPath();
-    const a = toPx({ x: 3, y: 3 });
-    const b = toPx({ x: 4, y: 4 });
-    ctx.moveTo(a.x, a.y);
-    ctx.lineTo(b.x, b.y);
+    const start = toPx(path[0].x, path[0].y);
+    ctx.moveTo(start.x, start.y);
+    for (let i = 1; i < path.length; i++) {
+      const p = toPx(path[i].x, path[i].y);
+      ctx.lineTo(p.x, p.y);
+    }
     ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.globalAlpha = 1;
+  }
+
+  function drawAgent(path, color, label) {
+    const pos = path[Math.min(stepIndex, path.length - 1)];
+    const p = toPx(pos.x, pos.y);
+    
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 14, 0, Math.PI * 2);
+    ctx.fill();
+    
+    ctx.fillStyle = "#fff";
+    ctx.font = "bold 12px Arial";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(label, p.x, p.y);
+  }
+
+  function drawGoal(x, y, label) {
+    const p = toPx(x, y);
+    ctx.strokeStyle = "#ffd166";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 10, 0, Math.PI * 2);
+    ctx.stroke();
+    
+    ctx.fillStyle = "#ffd166";
+    ctx.font = "10px Arial";
+    ctx.textAlign = "center";
+    ctx.fillText(label, p.x, p.y - 20);
+  }
+
+  function drawConflictZone() {
+    const p = toPx(2.5, 1.5);
+    ctx.strokeStyle = "#ef5350";
+    ctx.fillStyle = "rgba(239, 83, 80, 0.15)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 35, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+  }
+
+  function drawObstacle() {
+    const p1 = toPx(2, 1);
+    const p2 = toPx(3, 2);
+    ctx.fillStyle = "#555";
+    ctx.strokeStyle = "#888";
+    ctx.lineWidth = 2;
+    ctx.fillRect(p1.x - 15, p1.y - 15, 30, 30);
+    ctx.fillRect(p2.x - 15, p2.y - 15, 30, 30);
+    ctx.strokeRect(p1.x - 15, p1.y - 15, 30, 30);
+    ctx.strokeRect(p2.x - 15, p2.y - 15, 30, 30);
+  }
+
+  function drawSymmetryGroup() {
+    // Group 1
+    const p1 = toPx(agent1PathOriginal[stepIndex].x, agent1PathOriginal[stepIndex].y);
+    const p2 = toPx(agent2PathOriginal[stepIndex].x, agent2PathOriginal[stepIndex].y);
+    
+    ctx.strokeStyle = "#4fc3f7";
+    ctx.lineWidth = 3;
+    ctx.setLineDash([5, 5]);
+    ctx.beginPath();
+    ctx.moveTo(p1.x, p1.y);
+    ctx.lineTo(p2.x, p2.y);
+    ctx.stroke();
+    ctx.setLineDash([]);
   }
 
   function render() {
     ctx.clearRect(0, 0, W, H);
-    ctx.fillStyle = "#0f1318";
+    ctx.fillStyle = "#0a0e13";
     ctx.fillRect(0, 0, W, H);
-    drawGrid();
-    drawShelves();
-    drawGoals();
+    
+    drawMinimalGrid();
 
     if (mode === "plan") {
-      drawPaths();
-      drawAgents(false);
-      caption.textContent = "Planning: cooperative paths with reservations and conflict-free routes.";
+      drawPath(agent1PathOriginal, "#66bb6a", 0.6);
+      drawPath(agent2PathOriginal, "#4fc3f7", 0.6);
+      drawGoal(5, 1, "G1");
+      drawGoal(5, 2, "G2");
+      drawAgent(agent1PathOriginal, "#66bb6a", "1");
+      drawAgent(agent2PathOriginal, "#4fc3f7", "2");
+      caption.textContent = "Plan: Agents follow conflict-free paths to their goals.";
     } else if (mode === "symmetry") {
-      drawAgents(true);
-      caption.textContent = "Symmetry: agents grouped by role orbits.";
+      drawAgent(agent1PathOriginal, "#66bb6a", "1");
+      drawAgent(agent2PathOriginal, "#4fc3f7", "2");
+      drawSymmetryGroup();
+      caption.textContent = "Symmetry: Agents in the same role are grouped (blue connection).";
     } else if (mode === "verify") {
-      drawPaths();
-      drawVerification();
-      drawAgents(false);
-      caption.textContent = "Verification: detect unsafe regions and minimum separation violations.";
+      drawPath(agent1PathVerify, "#66bb6a", 0.4);
+      drawPath(agent2PathVerify, "#4fc3f7", 0.4);
+      drawObstacle();
+      drawConflictZone();
+      drawAgent(agent1PathVerify, "#66bb6a", "1");
+      drawAgent(agent2PathVerify, "#4fc3f7", "2");
+      caption.textContent = "Verify: Agents stop - detected obstacles (gray) blocking paths.";
     } else if (mode === "refine") {
-      drawPaths();
-      drawRefinement();
-      drawAgents(false);
-      caption.textContent = "Refinement: add constraints and replan around conflicts.";
+      // Show old paths in faded color
+      drawPath(agent1PathOriginal, "#888", 0.2);
+      drawPath(agent2PathOriginal, "#888", 0.2);
+      
+      // Show new refined paths
+      drawPath(agent1PathRefined, "#66bb6a", 0.7);
+      drawPath(agent2PathRefined, "#4fc3f7", 0.7);
+      
+      drawAgent(agent1PathRefined, "#66bb6a", "1");
+      drawAgent(agent2PathRefined, "#4fc3f7", "2");
+      
+      caption.textContent = "Refine: New paths (colored) avoid conflict zone, old paths (gray) discarded.";
     }
   }
 
   function tick(ts) {
     if (!lastTick) lastTick = ts;
     const elapsed = ts - lastTick;
-    if (playing && elapsed > 500) {
-      stepIndex = (stepIndex + 1) % 8;
+    if (playing && elapsed > 600) {
+      let maxLength;
+      if (mode === "refine") {
+        maxLength = agent1PathRefined.length;
+      } else if (mode === "verify") {
+        maxLength = agent1PathVerify.length;
+      } else {
+        maxLength = agent1PathOriginal.length;
+      }
+      stepIndex = (stepIndex + 1) % maxLength;
       lastTick = ts;
     }
     render();
@@ -359,22 +388,8 @@ if (canvas) {
       modeButtons.forEach((b) => b.classList.remove("is-active"));
       btn.classList.add("is-active");
       mode = btn.dataset.mode;
+      stepIndex = 0;
     });
-  });
-
-  playBtn.addEventListener("click", () => {
-    playing = !playing;
-    playBtn.textContent = playing ? "Pause" : "Play";
-  });
-
-  stepBtn.addEventListener("click", () => {
-    stepIndex = (stepIndex + 1) % 8;
-  });
-
-  resetBtn.addEventListener("click", () => {
-    stepIndex = 0;
-    playing = false;
-    playBtn.textContent = "Play";
   });
 }
 
@@ -382,9 +397,6 @@ if (canvas) {
 const algoCanvas = document.getElementById("algoCanvas");
 const algoCaption = document.getElementById("algoCaption");
 const algoButtons = document.querySelectorAll("[data-algo]");
-const algoPlayBtn = document.getElementById("algoPlayBtn");
-const algoStepBtn = document.getElementById("algoStepBtn");
-const algoResetBtn = document.getElementById("algoResetBtn");
 
 if (algoCanvas) {
   const ctx = algoCanvas.getContext("2d");
@@ -394,7 +406,7 @@ if (algoCanvas) {
   const offsetY = 20;
   let algoMode = "astar";
   let tick = 0;
-  let algoPlaying = false;
+  let algoPlaying = true;
   let lastAlgoTick = 0;
 
   const astarStart = { x: 1, y: 1 };
@@ -516,21 +528,6 @@ if (algoCanvas) {
       algoMode = btn.dataset.algo;
       tick = 0;
     });
-  });
-
-  algoPlayBtn.addEventListener("click", () => {
-    algoPlaying = !algoPlaying;
-    algoPlayBtn.textContent = algoPlaying ? "Pause" : "Play";
-  });
-
-  algoStepBtn.addEventListener("click", () => {
-    tick = (tick + 1) % 10;
-  });
-
-  algoResetBtn.addEventListener("click", () => {
-    tick = 0;
-    algoPlaying = false;
-    algoPlayBtn.textContent = "Play";
   });
 
   requestAnimationFrame(algoTick);
