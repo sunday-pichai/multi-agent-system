@@ -1,13 +1,9 @@
 import pygame
 import random
 import math
-import torch
-import numpy as np
 from typing import List, Tuple, Optional
-from pathlib import Path
 from agent import Robot
-from config import (GRID_W, GRID_H, CELL_SIZE, NUM_AGENTS, NUM_SHELVES, GOALS,
-                    STATE_SIZE)
+from config import GRID_W, GRID_H, CELL_SIZE, NUM_AGENTS, NUM_SHELVES, GOALS, RENDER_FPS
 
 pygame.init()
 
@@ -28,9 +24,10 @@ class WarehouseEnv:
 
         if render:
             self.screen = pygame.display.set_mode((self.grid_w*CELL_SIZE, self.grid_h*CELL_SIZE))
-            pygame.display.set_caption("Scalable Warehouse MAS - Symmetry & Verification Demo")
+            pygame.display.set_caption("Warehouse MAS - Symmetry-Reduced Verification")
             self.clock = pygame.time.Clock()
             self.font = pygame.font.SysFont("consolas", 18)
+        self.render_fps = RENDER_FPS
 
         self.reset()
 
@@ -54,7 +51,7 @@ class WarehouseEnv:
         for i in range(NUM_SHELVES):
             x, y = self.get_random_free_position(occupied)
             occupied.add((x, y))
-            requested = random.random() < 0.4
+            requested = True
             self.shelves.append({
                 'id': i,
                 'x': x, 'y': y,
@@ -63,6 +60,9 @@ class WarehouseEnv:
             })
 
         self.steps = 0
+        self.last_collisions = 0
+        self.last_delivered = 0
+        self.last_conflicts = []
         return [self.get_state(r) for r in self.robots]
 
     def get_state(self, robot: Robot):
@@ -127,10 +127,51 @@ class WarehouseEnv:
         rewards = []
         collisions = 0
         delivered = 0
+        self.last_conflicts = []
         if record_trajectories:
             trajectories = [[(r.x, r.y)] for r in self.robots]
         else:
             trajectories = None
+
+        # Precompute intended forward moves for conflict reporting (no behavior changes)
+        intents = {}
+        for robot, a_idx in zip(self.robots, actions):
+            if a_idx == 0:  # FORWARD
+                dx, dy = [0, 1, 0, -1], [-1, 0, 1, 0]
+                nx = robot.x + dx[robot.dir.value]
+                ny = robot.y + dy[robot.dir.value]
+                if not (0 <= nx < self.grid_w and 0 <= ny < self.grid_h):
+                    self.last_conflicts.append({
+                        'type': 'boundary',
+                        'agent': robot.id,
+                        'from': (robot.x, robot.y),
+                        'to': (nx, ny),
+                    })
+                else:
+                    intents[robot.id] = ((robot.x, robot.y), (nx, ny))
+
+        if intents:
+            target_to_agents = {}
+            for agent_id, (_, target) in intents.items():
+                target_to_agents.setdefault(target, []).append(agent_id)
+            for pos, agents in target_to_agents.items():
+                if len(agents) > 1:
+                    self.last_conflicts.append({
+                        'type': 'vertex',
+                        'agents': agents,
+                        'pos': pos,
+                    })
+            for a_id, (a_from, a_to) in intents.items():
+                for b_id, (b_from, b_to) in intents.items():
+                    if a_id >= b_id:
+                        continue
+                    if a_from == b_to and a_to == b_from:
+                        self.last_conflicts.append({
+                            'type': 'edge',
+                            'agents': [a_id, b_id],
+                            'from': a_from,
+                            'to': a_to,
+                        })
 
         for robot, a_idx in zip(self.robots, actions):
             r = -0.01  # Slight time penalty to reduce dithering
@@ -183,6 +224,8 @@ class WarehouseEnv:
             rewards = [r + team_bonus * delivered for r in rewards]
 
         self.steps += 1
+        self.last_collisions = collisions
+        self.last_delivered = delivered
         done = self.steps > 1000
 
         states = [self.get_state(r) for r in self.robots]
@@ -223,6 +266,26 @@ class WarehouseEnv:
                 txt = self.font.render(str(s['id'] % 100), True, BLACK)
                 self.screen.blit(txt, txt.get_rect(center=r.center))
 
+        # Symmetry orbits (role-based)
+        try:
+            from symmetry_reduction import detect_role_orbits
+            orbits = detect_role_orbits(self.robots)
+        except Exception:
+            orbits = [[i] for i in range(len(self.robots))]
+
+        orbit_colors = [
+            (80, 120, 200),
+            (200, 120, 80),
+            (120, 200, 120),
+            (200, 80, 160),
+            (160, 160, 80),
+            (80, 180, 180),
+        ]
+        orbit_by_agent = {}
+        for oi, orbit in enumerate(orbits):
+            for idx in orbit:
+                orbit_by_agent[idx] = oi
+
         # Robots
         for i, r in enumerate(self.robots):
             center_x = r.x * CELL_SIZE + CELL_SIZE // 2
@@ -234,6 +297,11 @@ class WarehouseEnv:
             color = RED if r.carrying else ORANGE
             pygame.draw.circle(self.screen, color, (center_x, center_y), CELL_SIZE//3)
 
+            # Orbit stroke for symmetric agents
+            orbit_idx = orbit_by_agent.get(i, 0)
+            stroke = orbit_colors[orbit_idx % len(orbit_colors)]
+            pygame.draw.circle(self.screen, stroke, (center_x, center_y), CELL_SIZE//3 + 2, 2)
+
             dx, dy = [0, 0.4, 0, -0.4], [-0.4, 0, 0.4, 0]
             ex = center_x + dx[r.dir.value] * CELL_SIZE * 0.45
             ey = center_y + dy[r.dir.value] * CELL_SIZE * 0.45
@@ -243,73 +311,40 @@ class WarehouseEnv:
             self.screen.blit(txt, txt.get_rect(center=(center_x, center_y)))
 
         pygame.display.flip()
-        self.clock.tick(20)
+        if self.render_fps > 0:
+            self.clock.tick(self.render_fps)
+        else:
+            self.clock.tick(0)
 
     def evaluate(
         self,
-        dqns,
-        device,
+        planner,
         num_episodes: int = 50,
-        plot: bool = False,
-        max_steps_per_episode: int = 200
+        max_steps_per_episode: int = 200,
+        progress_every: int = 0,
+        logger=None,
     ):
         total_collisions = 0
-        all_trajectories = []
 
         for ep in range(num_episodes):
-            states = self.reset()
+            self.reset()
             done = False
-            episode_collisions = 0
             steps_in_episode = 0
 
-            trajectories = [[(r.x, r.y)] for r in self.robots]
-
             while not done and steps_in_episode < max_steps_per_episode:
-                actions = []
-                for i, state in enumerate(states):
-                    with torch.no_grad():
-                        qnet = dqns[i % len(dqns)] if len(dqns) < self.num_agents else dqns[i]
-                        action = (
-                            qnet(
-                                torch.from_numpy(
-                                    np.array(state, dtype=np.float32)
-                                ).unsqueeze(0).to(device)
-                            )
-                            .argmax()
-                            .item()
-                        )
-                    actions.append(action)
-
-                states, _, done, cols, _ = self.step(actions)
-                episode_collisions += cols
+                actions = planner.compute_actions(self)
+                _, _, done, cols, _ = self.step(actions)
+                total_collisions += cols
                 steps_in_episode += 1
+            if progress_every and (ep + 1) % progress_every == 0:
+                msg = f"Eval progress: {ep + 1}/{num_episodes} episodes"
+                if logger:
+                    logger.info(msg)
+                else:
+                    print(msg)
 
-                for i, r in enumerate(self.robots):
-                    trajectories[i].append((r.x, r.y))
-
-            total_collisions += episode_collisions
-            all_trajectories.append(trajectories)
-
-        # ✅ FINAL, CORRECT METRIC
         avg_collisions_per_agent_per_episode = (
             total_collisions / (num_episodes * self.num_agents)
             if num_episodes > 0 else 0
         )
-
-        if plot:
-            from matplotlib import pyplot as plt
-            colors = plt.cm.rainbow(np.linspace(0, 1, self.num_agents))
-            fig, ax = plt.subplots(figsize=(8, 8))
-            for i, traj in enumerate(all_trajectories[0]):
-                x, y = zip(*traj)
-                ax.plot(x, y, marker='o', markersize=3, linewidth=1, color=colors[i], label=f'Agent {i+1}')
-            ax.set_xlim(0, self.grid_w)
-            ax.set_ylim(0, self.grid_h)
-            ax.set_title('Agent Trajectories (Evaluation)')
-            ax.set_xlabel('X')
-            ax.set_ylabel('Y')
-            ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
-            plt.tight_layout()
-            plt.show()
-
         return avg_collisions_per_agent_per_episode

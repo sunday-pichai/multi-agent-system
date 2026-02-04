@@ -1,7 +1,6 @@
 """Test reward structure to verify the fixes."""
 from env import WarehouseEnv
 from agent import Robot
-import numpy as np
 
 
 def test_step_penalty():

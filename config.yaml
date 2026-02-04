@@ -2,28 +2,35 @@
 # Override defaults from config.py
 
 grid:
-  width: 20
-  height: 20
+  width: 16
+  height: 16
   cell_size: 30
 
 agents:
-  num_agents: 8
-  num_shelves: 20
+  num_agents: 6
+  num_shelves: 8
   goals:
-    - [9, 18]
-    - [10, 18]
+    - [7, 14]
+    - [8, 14]
 
-training:
-  lr: 0.0005
-  gamma: 0.99
-  batch_size: 128
-  target_update: 500
-  memory_size: 100000
-  warmup_steps: 5000
-  save_interval: 20000
-  eps_start: 1.0
-  eps_end: 0.1  # Keep more exploration
-  eps_decay: 0.99997  # Slower decay for better exploration
+planning:
+  horizon: 40
+  use_cbs: true
+  cbs_max_nodes: 200
+  astar_max_nodes: 6000
+  idle_limit: 6
+
+render:
+  fps: 0
+
+verification:
+  min_separation: 1
+  horizon: 30
+  trials: 20
+
+refinement:
+  iterations: 2
+  max_constraints: 100
 
 paths:
   model_dir: models

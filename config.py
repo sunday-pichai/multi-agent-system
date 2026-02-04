@@ -23,30 +23,29 @@ GOLD       = (255, 215, 80)
 GREEN      = (60, 220, 100)
 
 # Default simulation configuration
-GRID_W: int = 20
-GRID_H: int = 20
+GRID_W: int = 16
+GRID_H: int = 16
 CELL_SIZE: int = 30  # default cell size (px)
-NUM_AGENTS: int = 8
-NUM_SHELVES: int = 20
-GOALS: List[Tuple[int, int]] = [(9, 18), (10, 18)]
+NUM_AGENTS: int = 6
+NUM_SHELVES: int = 8
+GOALS: List[Tuple[int, int]] = [(7, 14), (8, 14)]
 
-# DQN Hyperparameters and training defaults
+# Planning defaults
 STATE_SIZE: int = 4 + NUM_SHELVES * 4 + (NUM_AGENTS - 1) * 4
 ACTION_SIZE: int = 5
-HIDDEN: int = 512
-LR: float = 0.0005  # Increased learning rate for faster learning
-GAMMA: float = 0.99
-EPS_START: float = 1.0
-EPS_END: float = 0.1  # Keep more exploration (was 0.05)
-EPS_DECAY: float = 0.99997  # Slower decay to maintain exploration longer
-BATCH_SIZE: int = 128
-TARGET_UPDATE: int = 500
-MEMORY_SIZE: int = 100000
-WARMUP_STEPS: int = 5000
-SAVE_INTERVAL: int = 20000
+PLAN_HORIZON: int = 40
+USE_CBS: bool = True
+CBS_MAX_NODES: int = 200
+RENDER_FPS: int = 0
+ASTAR_MAX_NODES: int = 6000
+IDLE_LIMIT: int = 6
 
-# Model paths (per-agent)
-MODEL_PATHS = [f"dqn_agent_{i}.pth" for i in range(NUM_AGENTS)]
+# Verification and refinement defaults
+MIN_SEPARATION: int = 1
+VERIFY_HORIZON: int = 30
+VERIFY_TRIALS: int = 20
+REFINE_ITERATIONS: int = 2
+REFINE_MAX_CONSTRAINTS: int = 100
 
 
 def load_from_yaml(path: Optional[str] = None) -> None:
@@ -55,8 +54,10 @@ def load_from_yaml(path: Optional[str] = None) -> None:
     If PyYAML is not installed, this is a no-op (logs a warning).
     """
     global GRID_W, GRID_H, CELL_SIZE, NUM_AGENTS, NUM_SHELVES, GOALS
-    global LR, GAMMA, BATCH_SIZE, TARGET_UPDATE, MEMORY_SIZE, WARMUP_STEPS, SAVE_INTERVAL
-    global EPS_START, EPS_END, EPS_DECAY  # Added epsilon params
+    global PLAN_HORIZON, USE_CBS, CBS_MAX_NODES, RENDER_FPS
+    global ASTAR_MAX_NODES, IDLE_LIMIT
+    global MIN_SEPARATION, VERIFY_HORIZON, VERIFY_TRIALS
+    global REFINE_ITERATIONS, REFINE_MAX_CONSTRAINTS
 
     cfg_path = Path(path) if path else Path('config.yaml')
     if not cfg_path.exists():
@@ -91,31 +92,37 @@ def load_from_yaml(path: Optional[str] = None) -> None:
     if 'goals' in agents and isinstance(agents['goals'], list):
         GOALS = [tuple(g) for g in agents['goals']]
 
-    training = cfg.get('training', {})
-    if 'lr' in training:
-        LR = float(training['lr'])
-    if 'gamma' in training:
-        GAMMA = float(training['gamma'])
-    if 'batch_size' in training:
-        BATCH_SIZE = int(training['batch_size'])
-    if 'target_update' in training:
-        TARGET_UPDATE = int(training['target_update'])
-    if 'memory_size' in training:
-        MEMORY_SIZE = int(training['memory_size'])
-    if 'warmup_steps' in training:
-        WARMUP_STEPS = int(training['warmup_steps'])
-    if 'save_interval' in training:
-        SAVE_INTERVAL = int(training['save_interval'])
-    # Added epsilon overrides
-    if 'eps_start' in training:
-        EPS_START = float(training['eps_start'])
-    if 'eps_end' in training:
-        EPS_END = float(training['eps_end'])
-    if 'eps_decay' in training:
-        EPS_DECAY = float(training['eps_decay'])
+    planning = cfg.get('planning', {})
+    if 'horizon' in planning:
+        PLAN_HORIZON = int(planning['horizon'])
+    if 'use_cbs' in planning:
+        USE_CBS = bool(planning['use_cbs'])
+    if 'cbs_max_nodes' in planning:
+        CBS_MAX_NODES = int(planning['cbs_max_nodes'])
+    if 'astar_max_nodes' in planning:
+        ASTAR_MAX_NODES = int(planning['astar_max_nodes'])
+    if 'idle_limit' in planning:
+        IDLE_LIMIT = int(planning['idle_limit'])
+
+    render = cfg.get('render', {})
+    if 'fps' in render:
+        RENDER_FPS = int(render['fps'])
+
+    verification = cfg.get('verification', {})
+    if 'min_separation' in verification:
+        MIN_SEPARATION = int(verification['min_separation'])
+    if 'horizon' in verification:
+        VERIFY_HORIZON = int(verification['horizon'])
+    if 'trials' in verification:
+        VERIFY_TRIALS = int(verification['trials'])
+
+    refinement = cfg.get('refinement', {})
+    if 'iterations' in refinement:
+        REFINE_ITERATIONS = int(refinement['iterations'])
+    if 'max_constraints' in refinement:
+        REFINE_MAX_CONSTRAINTS = int(refinement['max_constraints'])
 
     # Update dependent derived values
     globals()['STATE_SIZE'] = 4 + NUM_SHELVES * 4 + (NUM_AGENTS - 1) * 4
-    globals()['MODEL_PATHS'] = [f"dqn_agent_{i}.pth" for i in range(NUM_AGENTS)]
 
     logger.info("Loaded config overrides from %s", cfg_path)

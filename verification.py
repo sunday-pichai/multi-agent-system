@@ -1,111 +1,117 @@
-"""Skeleton verification utilities.
+"""Verification utilities for symmetry-reduced deterministic MAS.
 
-Provide lightweight bounded reachability checks / over-approx verification of safety properties (collision).
-Initially includes a brute-force bounded search on the quotient model, later to be replaced with tighter abstractions.
+This module performs bounded safety verification on a quotient model by
+canonicalizing symmetric agent configurations and checking for collisions
+and minimum separation violations over a fixed horizon.
 """
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
+
+from symmetry_reduction import canonicalize_state
 
 
-def verify_collision_free(env, policy_models: List[Any]=None, horizon: int = 20, trials: int = 200) -> Dict[str, Any]:
-    """Check safety up to `horizon` steps; return dict with 'safe': bool and optional 'counterexample'.
+def _min_pairwise_manhattan(robots) -> int:
+    if len(robots) < 2:
+        return 999
+    min_d = 999
+    for i in range(len(robots)):
+        for j in range(i + 1, len(robots)):
+            a = robots[i]
+            b = robots[j]
+            d = abs(a.x - b.x) + abs(a.y - b.y)
+            if d < min_d:
+                min_d = d
+    return min_d
 
-    If `policy_models` is provided (list of PyTorch models), actions will be chosen from the models; otherwise random actions are used.
+
+def verify_on_quotient(
+    env,
+    planner,
+    horizon: int = 20,
+    trials: int = 50,
+    include_shelves: bool = False,
+    min_separation: int = 1,
+    progress_every: int = 0,
+    logger=None,
+) -> Dict[str, Any]:
+    """Bounded verification on the symmetry-reduced quotient.
+
+    Returns a dict with:
+    - safe: bool
+    - counterexample: list of agent positions per step (if unsafe)
+    - actions: per-step action list (if unsafe)
+    - delta_q: minimum safety margin on quotient
     """
-    import random
-    import torch
-    import numpy as np
+    overall_min_margin = 999
+    total_steps = 0
+    total_collisions = 0
 
-    def sample_action(i, state):
-        if policy_models:
-            # use shared model if fewer models than agents
-            q = policy_models[i % len(policy_models)]
-            with torch.no_grad():
-                a = int(q(torch.from_numpy(np.array(state, dtype=np.float32)).unsqueeze(0)).argmax().item())
-            return a
-        else:
-            return random.randrange(5)
-
-    for t in range(trials):  # random trials
-        states = env.reset()
-        trace = [[(r.x, r.y) for r in env.robots]]
-        for h in range(horizon):
-            actions = []
-            for i, s in enumerate(states):
-                a = sample_action(i, s)
-                actions.append(a)
-            states, _, _, cols, _ = env.step(actions)
-            trace.append([(r.x, r.y) for r in env.robots])
-            if cols > 0:
-                return {'safe': False, 'counterexample': trace}
-    return {'safe': True}
-
-
-def verify_collision_by_actions(env, actions_sequence: List[List[int]]):
-    """Given a deterministic sequence of actions (list of per-step action lists), simulate env and return collision trace if any."""
-    trace = [ [(r.x, r.y) for r in env.robots] ]
-    for actions in actions_sequence:
-        states, _, _, cols, _ = env.step(actions)
-        trace.append([(r.x, r.y) for r in env.robots])
-        if cols > 0:
-            return {'safe': False, 'counterexample': trace}
-    return {'safe': True}
-
-
-def verify_on_quotient(env, policy_models: List[Any]=None, horizon: int = 20, trials: int = 200):
-    """Run verification on a quotient where agents in the same orbit execute the same actions.
-
-    - Detect permutation symmetries (orbits) using `symmetry_reduction.detect_permutation_symmetries`.
-    - For each trial, sample representative actions (either from `policy_models` or random) and apply them to all agents in the corresponding orbit.
-    - Return counterexample trace if any collision is found in the full environment.
-
-    This provides a conservative check for symmetry-exploiting counterexamples.
-    """
-    from symmetry_reduction import detect_permutation_symmetries
-    import random
-    import torch
-    import numpy as np
-
-    agents_pos = [(r.x, r.y) for r in env.robots]
-    shelves_pos = [(s['x'], s['y']) for s in env.shelves]
-    orbits = detect_permutation_symmetries(agents_pos, shelves_pos, grid_size=(env.grid_w, env.grid_h))
-
-    reps = [o['orbit'][0] for o in orbits]
-
-    def sample_action_for_rep(i, state):
-        if policy_models:
-            q = policy_models[i % len(policy_models)]
-            with torch.no_grad():
-                a = int(q(torch.from_numpy(np.array(state, dtype=np.float32)).unsqueeze(0)).argmax().item())
-            return a
-        else:
-            return random.randrange(5)
-
-    for t in range(trials):
+    for trial in range(trials):
         env.reset()
-        trace = [ [(r.x, r.y) for r in env.robots] ]
-        actions_history = []
-        for h in range(horizon):
-            rep_actions = {}
-            # sample actions for representatives
-            for ri, rep_idx in enumerate(reps):
-                # use state of the representative
-                state = env.get_state(env.robots[rep_idx])
-                rep_actions[rep_idx] = sample_action_for_rep(ri, state)
+        visited = set()
+        trace = [[(r.x, r.y) for r in env.robots]]
+        actions_history: List[List[int]] = []
 
-            # build full action list by copying rep actions to their orbit members
-            actions = []
-            for agent_idx in range(len(env.robots)):
-                # find which orbit this agent belongs to
-                orbit_id = next((oi for oi, o in enumerate(orbits) if agent_idx in o['orbit']), None)
-                if orbit_id is None:
-                    actions.append(random.randrange(5))
-                else:
-                    rep_idx = orbits[orbit_id]['orbit'][0]
-                    actions.append(rep_actions[rep_idx])
+        min_d0 = _min_pairwise_manhattan(env.robots)
+        if min_d0 < min_separation:
+            return {
+                'safe': False,
+                'counterexample': trace,
+                'actions': actions_history,
+                'conflicts': [{'type': 'separation', 'time': 0, 'min_distance': min_d0}],
+                'delta_q': min_d0 - min_separation,
+            }
 
+        for t in range(horizon):
+            key = canonicalize_state(env, include_shelves=include_shelves)
+            if key in visited:
+                break
+            visited.add(key)
+
+            actions = planner.compute_actions(env)
             actions_history.append(actions)
-            states, _, _, cols, _ = env.step(actions)
+            _, _, _, cols, _ = env.step(actions)
+            total_steps += 1
+            total_collisions += cols
+
             trace.append([(r.x, r.y) for r in env.robots])
-            if cols > 0:
-                return {'safe': False, 'counterexample': trace, 'actions': actions_history, 'orbits': orbits}
-    return {'safe': True, 'orbits': orbits}
+
+            min_d = _min_pairwise_manhattan(env.robots)
+            margin = min_d - min_separation
+            if margin < overall_min_margin:
+                overall_min_margin = margin
+
+            if cols > 0 or env.last_conflicts:
+                conflicts = []
+                for c in env.last_conflicts:
+                    entry = dict(c)
+                    entry['time'] = t
+                    conflicts.append(entry)
+                return {
+                    'safe': False,
+                    'counterexample': trace,
+                    'actions': actions_history,
+                    'conflicts': conflicts,
+                    'delta_q': overall_min_margin,
+                    'avg_collision_rate': (total_collisions / total_steps) if total_steps else 0.0,
+                }
+            if min_d < min_separation:
+                return {
+                    'safe': False,
+                    'counterexample': trace,
+                    'actions': actions_history,
+                    'conflicts': [{'type': 'separation', 'time': t, 'min_distance': min_d}],
+                    'delta_q': overall_min_margin,
+                    'avg_collision_rate': (total_collisions / total_steps) if total_steps else 0.0,
+                }
+        if progress_every and (trial + 1) % progress_every == 0:
+            msg = f"Verify progress: {trial + 1}/{trials} trials"
+            if logger:
+                logger.info(msg)
+            else:
+                print(msg)
+
+    return {
+        'safe': True,
+        'delta_q': overall_min_margin if overall_min_margin != 999 else 0,
+        'avg_collision_rate': (total_collisions / total_steps) if total_steps else 0.0,
+    }

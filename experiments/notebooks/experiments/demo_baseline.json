@@ -1,8 +1,0 @@
-{
-  "seed": 42,
-  "out": {
-    "pre_rate": 12.0,
-    "post_rate": 10.0,
-    "notes": "fallback output (demo only)"
-  }
-}
