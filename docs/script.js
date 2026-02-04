@@ -1,7 +1,5 @@
 // ==================== Dark Mode Toggle ====================
-// Dark mode toggle functionality
-const darkModeToggle = document.getElementById("darkModeToggle");
-const mobileThemeToggle = document.getElementById("mobileThemeToggle");
+const mobileHeaderThemeToggle = document.getElementById("mobileHeaderThemeToggle");
 
 function toggleDarkMode() {
   document.body.classList.toggle("dark-mode");
@@ -9,79 +7,115 @@ function toggleDarkMode() {
   localStorage.setItem("darkMode", isDarkMode);
 }
 
-if (darkModeToggle) {
-  // Check for saved dark mode preference or default to light mode
-  const savedDarkMode = localStorage.getItem("darkMode") === "true";
-  if (savedDarkMode) {
-    document.body.classList.add("dark-mode");
-  }
+// Check for saved dark mode preference
+const savedDarkMode = localStorage.getItem("darkMode") === "true";
+if (savedDarkMode) {
+  document.body.classList.add("dark-mode");
+}
 
-  darkModeToggle.addEventListener("click", toggleDarkMode);
+// Mobile header theme toggle
+if (mobileHeaderThemeToggle) {
+  mobileHeaderThemeToggle.addEventListener("click", toggleDarkMode);
+}
 
-  // Show toggle only when scrolled down
-  window.addEventListener("scroll", () => {
-    if (window.scrollY > 300) {
-      darkModeToggle.classList.add("visible");
-    } else {
-      darkModeToggle.classList.remove("visible");
+// ==================== Mobile Navigation System ====================
+class MobileNavigation {
+  constructor() {
+    this.toggle = document.getElementById("mobileMenuToggle");
+    this.menu = document.getElementById("mobileFullscreenMenu");
+    this.isOpen = false;
+    
+    if (this.toggle && this.menu) {
+      this.init();
     }
-  });
-}
-
-if (mobileThemeToggle) {
-  // Check for saved dark mode preference
-  const savedDarkMode = localStorage.getItem("darkMode") === "true";
-  if (savedDarkMode) {
-    document.body.classList.add("dark-mode");
   }
-
-  mobileThemeToggle.addEventListener("click", toggleDarkMode);
-}
-
-// ==================== Mobile Menu Toggle ====================
-const mobileMenuToggle = document.getElementById("mobileMenuToggle");
-const sidebar = document.getElementById("sidebar");
-const sidebarToggle = document.getElementById("sidebarToggle");
-const sidebarOverlay = document.getElementById("sidebarOverlay");
-
-function setSidebarOpen(isOpen) {
-  if (!sidebar) return;
-  sidebar.classList.toggle("is-open", isOpen);
-  document.body.classList.toggle("sidebar-open", isOpen);
-}
-
-function toggleSidebar() {
-  if (!sidebar) return;
-  setSidebarOpen(!sidebar.classList.contains("is-open"));
-}
-
-if (mobileMenuToggle) {
-  mobileMenuToggle.addEventListener("click", toggleSidebar);
-}
-
-if (sidebarToggle) {
-  sidebarToggle.addEventListener("click", toggleSidebar);
-}
-
-if (sidebarOverlay) {
-  sidebarOverlay.addEventListener("click", () => setSidebarOpen(false));
-}
-
-if (sidebar) {
-  sidebar.addEventListener("click", (e) => {
-    if (window.innerWidth > 1024) return;
-    const target = e.target;
-    if (target instanceof Element && target.closest(".nav-link")) {
-      setSidebarOpen(false);
+  
+  init() {
+    // Toggle button click
+    this.toggle.addEventListener("click", (e) => {
+      e.stopPropagation();
+      this.toggleMenu();
+    });
+    
+    // Click nav links to close menu
+    this.menu.querySelectorAll(".mobile-nav-link").forEach(link => {
+      link.addEventListener("click", (e) => {
+        const href = link.getAttribute("href");
+        if (href && href.startsWith("#")) {
+          e.preventDefault();
+          this.handleNavClick(href);
+        }
+      });
+    });
+    
+    // Keyboard support
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && this.isOpen) {
+        this.close();
+      }
+    });
+    
+    // Set initial active link
+    this.setActiveLink(window.location.hash || "#overview");
+  }
+  
+  toggleMenu() {
+    this.isOpen ? this.close() : this.open();
+  }
+  
+  open() {
+    this.isOpen = true;
+    document.body.classList.add("mobile-menu-open");
+    this.toggle.setAttribute("aria-expanded", "true");
+  }
+  
+  close() {
+    this.isOpen = false;
+    document.body.classList.remove("mobile-menu-open");
+    this.toggle.setAttribute("aria-expanded", "false");
+  }
+  
+  handleNavClick(href) {
+    // Set active link
+    this.setActiveLink(href);
+    
+    // Close menu
+    this.close();
+    
+    // Scroll to section
+    setTimeout(() => {
+      const target = document.querySelector(href);
+      if (target) {
+        target.scrollIntoView({ behavior: "smooth", block: "start" });
+        history.pushState(null, null, href);
+      }
+    }, 200);
+  }
+  
+  setActiveLink(href) {
+    this.menu.querySelectorAll(".mobile-nav-link").forEach(link => {
+      link.classList.remove("active");
+    });
+    const activeLink = this.menu.querySelector(`a[href="${href}"]`);
+    if (activeLink) {
+      activeLink.classList.add("active");
     }
-  });
+  }
 }
 
-document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape" && sidebar?.classList.contains("is-open")) {
-    setSidebarOpen(false);
-  }
-});
+// Initialize navigation
+let mobileNav;
+
+function initNavigation() {
+  mobileNav = new MobileNavigation();
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", initNavigation);
+} else {
+  initNavigation();
+}
+
 
 window.addEventListener("resize", () => {
   if (window.innerWidth > 1024 && sidebar?.classList.contains("is-open")) {
@@ -95,16 +129,19 @@ window.addEventListener("resize", () => {
 // ==================== Active Link Highlighting ====================
 // Removed - no longer using active link highlighting
 
-// ==================== Canvas Demos ====================
+// ==================== Canvas Demos - Responsive Setup ====================
 const CANVAS_MIN_HEIGHT = (() => {
   if (typeof window === "undefined") {
     return 1444;
   }
   const width = window.innerWidth;
-  if (width <= 480) return 420;
-  if (width <= 768) return 540;
-  if (width <= 1024) return 720;
-  return 1444;
+  // Mobile-first responsive breakpoints
+  if (width <= 380) return 300;      // Small phones
+  if (width <= 480) return 360;      // Standard phones
+  if (width <= 600) return 420;      // Large phones
+  if (width <= 768) return 540;      // Tablets (portrait)
+  if (width <= 1024) return 720;     // Tablets (landscape) / Small screens
+  return 1444;                        // Desktop
 })();
 
 function createHiResCanvas(canvas, minHeight = CANVAS_MIN_HEIGHT) {
@@ -119,8 +156,11 @@ function createHiResCanvas(canvas, minHeight = CANVAS_MIN_HEIGHT) {
       return { width: 0, height: 0, scale: 1 };
     }
 
+    // Scale canvas resolution for high-DPI displays (retina, etc)
+    // but keep drawing viewport at actual CSS display size
     const dpr = window.devicePixelRatio || 1;
-    const scale = Math.max(dpr, minHeight / rect.height);
+    // Only use devicePixelRatio for crisp rendering, not minHeight (prevents zoom)
+    const scale = dpr;
     const width = Math.max(1, Math.round(rect.width * scale));
     const height = Math.max(1, Math.round(rect.height * scale));
 
@@ -203,18 +243,46 @@ function drawFlowChart(active) {
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, width, height);
 
-  // Dynamic positioning based on canvas size
+  // Dynamic responsive positioning based on canvas size
   const centerX = width / 2;
   const centerY = height / 2;
-  const spacing = Math.min(width * 0.35, 180);
-  const vSpacing = Math.min(height * 0.3, 100);
+  
+  // Mobile-responsive spacing
+  let spacing, vSpacing, nodeWidth, nodeHeight, fontSize;
+  
+  if (width < 400) {
+    spacing = Math.min(width * 0.25, 80);
+    vSpacing = Math.min(height * 0.25, 60);
+    nodeWidth = Math.max(60, width * 0.18);
+    nodeHeight = Math.max(35, height * 0.15);
+    fontSize = Math.max(10, width * 0.035);
+  } else if (width < 600) {
+    spacing = Math.min(width * 0.3, 120);
+    vSpacing = Math.min(height * 0.28, 80);
+    nodeWidth = Math.max(90, width * 0.22);
+    nodeHeight = Math.max(40, height * 0.18);
+    fontSize = Math.max(12, width * 0.04);
+  } else {
+    spacing = Math.min(width * 0.35, 180);
+    vSpacing = Math.min(height * 0.3, 100);
+    nodeWidth = Math.min(width * 0.25, 140);
+    nodeHeight = Math.min(height * 0.15, 50);
+    fontSize = Math.max(14, width * 0.045);
+  }
   
   const nodes = [
     { key: "plan", label: "Plan", x: centerX - spacing, y: centerY - vSpacing },
-    { key: "symmetry", label: "Symmetry", x: centerX + spacing * 0.3, y: centerY - vSpacing },
-    { key: "verify", label: "Verify", x: centerX + spacing * 0.3, y: centerY + vSpacing * 0.3 },
+    { key: "symmetry", label: "Symmetry", x: centerX + spacing * 0.25, y: centerY - vSpacing },
+    { key: "verify", label: "Verify", x: centerX + spacing * 0.25, y: centerY + vSpacing * 0.3 },
     { key: "refine", label: "Refine", x: centerX - spacing, y: centerY + vSpacing * 0.3 },
   ];
+
+  // Constrain node positions to stay within canvas bounds
+  const padding = 20;
+  nodes.forEach((n) => {
+    n.x = Math.max(padding, Math.min(n.x, width - nodeWidth - padding));
+    n.y = Math.max(padding, Math.min(n.y, height - nodeHeight - padding));
+  });
 
   function roundedRect(x, y, w, h, r) {
     ctx.beginPath();
@@ -232,13 +300,13 @@ function drawFlowChart(active) {
 
   function arrow(fromX, fromY, toX, toY) {
     ctx.strokeStyle = "rgba(255,255,255,0.35)";
-    ctx.lineWidth = 2;
+    ctx.lineWidth = Math.max(1.5, width * 0.003);
     ctx.beginPath();
     ctx.moveTo(fromX, fromY);
     ctx.lineTo(toX, toY);
     ctx.stroke();
     const angle = Math.atan2(toY - fromY, toX - fromX);
-    const head = 8;
+    const head = Math.max(5, width * 0.012);
     ctx.beginPath();
     ctx.moveTo(toX, toY);
     ctx.lineTo(toX - head * Math.cos(angle - Math.PI / 6), toY - head * Math.sin(angle - Math.PI / 6));
@@ -249,43 +317,61 @@ function drawFlowChart(active) {
   }
 
   // Draw arrows between nodes
-  const w = Math.min(width * 0.25, 140);
-  const h = Math.min(height * 0.15, 50);
-  
-  arrow(nodes[0].x + w, nodes[0].y + h/2, nodes[1].x, nodes[1].y + h/2);
-  arrow(nodes[1].x + w/2, nodes[1].y + h, nodes[2].x + w/2, nodes[2].y);
-  arrow(nodes[2].x, nodes[2].y + h/2, nodes[3].x + w, nodes[3].y + h/2);
-  arrow(nodes[3].x + w/2, nodes[3].y, nodes[0].x + w/2, nodes[0].y + h);
+  arrow(nodes[0].x + nodeWidth, nodes[0].y + nodeHeight/2, nodes[1].x, nodes[1].y + nodeHeight/2);
+  arrow(nodes[1].x + nodeWidth/2, nodes[1].y + nodeHeight, nodes[2].x + nodeWidth/2, nodes[2].y);
+  arrow(nodes[2].x, nodes[2].y + nodeHeight/2, nodes[3].x + nodeWidth, nodes[3].y + nodeHeight/2);
+  arrow(nodes[3].x + nodeWidth/2, nodes[3].y, nodes[0].x + nodeWidth/2, nodes[0].y + nodeHeight);
 
   nodes.forEach((n) => {
     const isActive = n.key === active;
     ctx.save();
     ctx.shadowColor = isActive ? "rgba(255, 214, 102, 0.5)" : "rgba(0,0,0,0.35)";
     ctx.shadowBlur = isActive ? 18 : 12;
-    ctx.shadowOffsetY = 6;
+    ctx.shadowOffsetY = Math.max(3, height * 0.018);
     ctx.fillStyle = isActive ? "#c85d3d" : "#1f2a33";
     ctx.strokeStyle = isActive ? "#ffd166" : "#2d3a45";
-    ctx.lineWidth = 2;
-    roundedRect(n.x, n.y, w, h, 12);
+    ctx.lineWidth = Math.max(1.5, width * 0.003);
+    roundedRect(n.x, n.y, nodeWidth, nodeHeight, Math.max(6, width * 0.015));
     ctx.fill();
     ctx.stroke();
     ctx.restore();
 
     ctx.fillStyle = "#f2f2f2";
-    const fontSize = Math.max(12, Math.min(16, width * 0.028));
     ctx.font = `600 ${fontSize}px 'Space Grotesk', sans-serif`;
-    const textX = n.x + w * 0.15;
-    const textY = n.y + h * 0.6;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    const textX = n.x + nodeWidth / 2;
+    const textY = n.y + nodeHeight / 2;
     ctx.fillText(n.label, textX, textY);
+    
+    // Reset text alignment
+    ctx.textAlign = "left";
+    ctx.textBaseline = "alphabetic";
   });
 }
 
 // Redraw on resize for responsive behavior
+let resizeTimeout;
 window.addEventListener('resize', () => {
-  const activeBtn = document.querySelector('[data-flow].is-active');
-  if (activeBtn && flowChart) {
-    drawFlowChart(activeBtn.dataset.flow);
-  }
+  // Debounce resize events
+  clearTimeout(resizeTimeout);
+  resizeTimeout = setTimeout(() => {
+    const activeBtn = document.querySelector('[data-flow].is-active');
+    if (activeBtn && flowChart) {
+      drawFlowChart(activeBtn.dataset.flow);
+    }
+    
+    // Force redraw of other canvases
+    if (algoCanvas && algoSurface) {
+      algoSurface.resize(true);
+    }
+    if (symmetryCanvas && symmetrySurface) {
+      symmetrySurface.resize(true);
+    }
+    if (verifyCanvas && verifySurface) {
+      verifySurface.resize(true);
+    }
+  }, 250); // Debounce for 250ms
 });
 
 function updateFlow(active) {
@@ -559,7 +645,7 @@ if (algoCanvas) {
   console.log('Initializing algoCanvas...');
   const ctx = algoSurface.ctx;
   const grid = 10;
-  const cell = 32;
+  let cell = 32; // Will be adjusted based on canvas size
   let canvasWidth = 0;
   let canvasHeight = 0;
   let offsetX = 0;
@@ -573,9 +659,17 @@ if (algoCanvas) {
     const size = algoSurface.resize();
     canvasWidth = size.width;
     canvasHeight = size.height;
+    // Responsive cell size: scale grid to fit canvas
+    cell = Math.min(canvasWidth / (grid + 2), canvasHeight / (grid + 2), 40);
+    cell = Math.max(cell, 16); // Min cell size of 16px
     offsetX = (canvasWidth - grid * cell) / 2;
     offsetY = (canvasHeight - grid * cell) / 2;
     return size;
+  }
+
+  // Calculate agent radius based on cell size
+  function getAgentRadius(multiplier = 0.45) {
+    return Math.max(7, Math.min(cell * multiplier, 15));
   }
 
   const astarStart = { x: 1, y: 1 };
@@ -864,7 +958,7 @@ if (algoCanvas) {
       // Agent 1 (orange) - fetching from shelf
       ctx.fillStyle = "#f08c3a";
       ctx.beginPath();
-      ctx.arc(pA.x + cell/2, pA.y + cell/2, 15, 0, Math.PI * 2);
+      ctx.arc(pA.x + cell/2, pA.y + cell/2, getAgentRadius(), 0, Math.PI * 2);
       ctx.fill();
       ctx.strokeStyle = "#fff";
       ctx.lineWidth = 2;
@@ -878,7 +972,7 @@ if (algoCanvas) {
       // Agent 2 (blue) - fetching from shelf
       ctx.fillStyle = "#4fc3f7";
       ctx.beginPath();
-      ctx.arc(pB.x + cell/2, pB.y + cell/2, 15, 0, Math.PI * 2);
+      ctx.arc(pB.x + cell/2, pB.y + cell/2, getAgentRadius(), 0, Math.PI * 2);
       ctx.fill();
       ctx.strokeStyle = "#fff";
       ctx.lineWidth = 2;
@@ -962,7 +1056,7 @@ if (algoCanvas) {
       // Agent 1 (orange)
       ctx.fillStyle = "#f08c3a";
       ctx.beginPath();
-      ctx.arc(pA.x + cell/2, pA.y + cell/2, 15, 0, Math.PI * 2);
+      ctx.arc(pA.x + cell/2, pA.y + cell/2, getAgentRadius(), 0, Math.PI * 2);
       ctx.fill();
       ctx.strokeStyle = "#fff";
       ctx.lineWidth = 2;
@@ -976,7 +1070,7 @@ if (algoCanvas) {
       // Agent 2 (blue)
       ctx.fillStyle = "#4fc3f7";
       ctx.beginPath();
-      ctx.arc(pB.x + cell/2, pB.y + cell/2, 15, 0, Math.PI * 2);
+      ctx.arc(pB.x + cell/2, pB.y + cell/2, getAgentRadius(), 0, Math.PI * 2);
       ctx.fill();
       ctx.strokeStyle = "#fff";
       ctx.lineWidth = 2;
@@ -1461,7 +1555,7 @@ if (symmetryCanvas) {
   console.log('Initializing symmetryCanvas...');
   const sctx = symmetrySurface.ctx;
   const sgrid = 10;
-  const scell = 32;
+  let scell = 32; // Will be adjusted based on canvas size
   let sWidth = 0;
   let sHeight = 0;
   let soffsetX = 0;
@@ -1474,9 +1568,17 @@ if (symmetryCanvas) {
     const size = symmetrySurface.resize();
     sWidth = size.width;
     sHeight = size.height;
+    // Responsive cell size: scale grid to fit canvas
+    scell = Math.min(sWidth / (sgrid + 2), sHeight / (sgrid + 2), 40);
+    scell = Math.max(scell, 16); // Min cell size of 16px
     soffsetX = (sWidth - sgrid * scell) / 2;
     soffsetY = (sHeight - sgrid * scell) / 2;
     return size;
+  }
+
+  // Calculate agent radius based on cell size
+  function getSAgentRadius(multiplier = 0.45) {
+    return Math.max(7, Math.min(scell * multiplier, 15));
   }
   
   function sToCell(px, py) {
@@ -1535,7 +1637,7 @@ if (symmetryCanvas) {
       
       sctx.fillStyle = color;
       sctx.beginPath();
-      sctx.arc(p.x + scell/2, p.y + scell/2, agent.size === "large" ? 18 : 15, 0, Math.PI * 2);
+      sctx.arc(p.x + scell/2, p.y + scell/2, agent.size === "large" ? getSAgentRadius(0.6) : getSAgentRadius(), 0, Math.PI * 2);
       sctx.fill();
       
       sctx.fillStyle = '#fff';
@@ -1638,7 +1740,7 @@ if (symmetryCanvas) {
       
       sctx.fillStyle = "#4fc3f7";
       sctx.beginPath();
-      sctx.arc(p.x + scell/2, p.y + scell/2, 15, 0, Math.PI * 2);
+      sctx.arc(p.x + scell/2, p.y + scell/2, getSAgentRadius(), 0, Math.PI * 2);
       sctx.fill();
       
       sctx.fillStyle = "#fff";
@@ -1751,6 +1853,11 @@ if (verifyCanvas) {
     vLegendY = 0;
     return size;
   }
+
+  // Calculate agent radius based on cell size
+  function getVAgentRadius(multiplier = 0.45) {
+    return Math.max(7, Math.min(vcell * multiplier, 15));
+  }
   
   function vToCell(px, py) {
     return {
@@ -1818,7 +1925,7 @@ if (verifyCanvas) {
       
       vctx.fillStyle = agent.stopped ? "#ef5350" : "#4fc3f7";
       vctx.beginPath();
-      vctx.arc(p.x + vcell/2, p.y + vcell/2, 15, 0, Math.PI * 2);
+      vctx.arc(p.x + vcell/2, p.y + vcell/2, getVAgentRadius(), 0, Math.PI * 2);
       vctx.fill();
       
       vctx.fillStyle = "#fff";

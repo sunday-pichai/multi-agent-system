@@ -2,13 +2,16 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes, viewport-fit=cover" />
     <title>Warehouse MAS Documentation — Multi-Agent System with Formal Verification</title>
     
     <!-- Meta tags -->
     <meta name="description" content="Documentation for a multi-agent warehouse simulator with Cooperative A* + CBS, symmetry-reduced quotient verification, and constraint-based refinement." />
     <meta name="og:title" content="Warehouse MAS Documentation" />
     <meta name="og:description" content="Multi-agent warehouse simulator with formal verification and symmetry reduction" />
+    <meta name="theme-color" content="#3182ce" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     
     <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="favicon.svg" />
@@ -16,90 +19,65 @@
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <!-- Mobile Menu Toggle -->
-    <button id="mobileMenuToggle" class="mobile-menu-toggle" aria-label="Toggle menu">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <line x1="3" y1="12" x2="21" y2="12"></line>
-        <line x1="3" y1="6" x2="21" y2="6"></line>
-        <line x1="3" y1="18" x2="21" y2="18"></line>
-      </svg>
-    </button>
-    
-    <!-- Mobile Dark Mode Toggle -->
-    <button id="mobileThemeToggle" class="mobile-theme-toggle" aria-label="Toggle dark mode">
-      <svg class="toggle-icon-light" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <circle cx="12" cy="12" r="4"/>
-        <path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32l1.41 1.41M2 12h2m16 0h2M4.93 19.07l1.41-1.41m11.32-11.32l1.41-1.41"/>
-      </svg>
-      <svg class="toggle-icon-dark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-      </svg>
-    </button>
-    
-    <!-- Sidebar Navigation -->
-    <aside class="sidebar" id="sidebar">
-      <div class="sidebar__header">
-        <h3 class="sidebar__title">Warehouse MAS</h3>
-        <button class="sidebar__toggle" id="sidebarToggle" aria-label="Toggle sidebar">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="3" y1="12" x2="21" y2="12"></line>
-            <line x1="3" y1="6" x2="21" y2="6"></line>
-            <line x1="3" y1="18" x2="21" y2="18"></line>
-          </svg>
-        </button>
+    <!-- Mobile Header -->
+    <header class="mobile-header">
+      <div class="mobile-header__title">
+        <span>Warehouse MAS</span>
       </div>
-      
-      <nav class="sidebar__nav">
-        <div class="nav-section">
-          <h4 class="nav-section__title">Getting Started</h4>
-          <a href="#overview" class="nav-link">Overview</a>
-          <a href="#installation" class="nav-link">Installation</a>
-          <a href="#quick-start" class="nav-link">Quick Start</a>
-        </div>
-        
-        <div class="nav-section">
-          <h4 class="nav-section__title">Core Concepts</h4>
-          <a href="#problem-scope" class="nav-link">Problem Scope</a>
-          <a href="#architecture" class="nav-link">Architecture</a>
-          <a href="#algorithms" class="nav-link">Algorithms</a>
-        </div>
-        
-        <div class="nav-section">
-          <h4 class="nav-section__title">Features</h4>
-          <a href="#planning" class="nav-link">Path Planning</a>
-          <a href="#symmetry" class="nav-link">Symmetry Reduction</a>
-          <a href="#verification" class="nav-link">Verification</a>
-          <a href="#refinement" class="nav-link">Refinement</a>
-        </div>
-        
-        <div class="nav-section">
-          <h4 class="nav-section__title">Usage</h4>
-          <a href="#commands" class="nav-link">Commands</a>
-          <a href="#configuration" class="nav-link">Configuration</a>
-          <a href="#examples" class="nav-link">Examples</a>
-        </div>
-        
-        <div class="nav-section">
-          <h4 class="nav-section__title">Resources</h4>
-          <a href="#limitations" class="nav-link">Limitations</a>
-        </div>
-      </nav>
-      
-      <div class="sidebar__footer">
-        <button id="darkModeToggle" class="theme-toggle" aria-label="Toggle dark mode">
-          <svg class="toggle-icon-light" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32l1.41 1.41M2 12h2m16 0h2M4.93 19.07l1.41-1.41m11.32-11.32l1.41-1.41"/>
+      <div class="mobile-header__actions">
+        <button id="mobileHeaderThemeToggle" class="mobile-header-theme-toggle" aria-label="Toggle theme">
+          <svg class="toggle-icon-light" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="4"/>
+            <path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32l1.41 1.41M2 12h2m16 0h2M4.93 19.07l1.41-1.41m11.32-11.32l1.41-1.41"/>
           </svg>
-          <svg class="toggle-icon-dark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <svg class="toggle-icon-dark" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
           </svg>
-          <span>Theme</span>
+        </button>
+        <button id="mobileMenuToggle" class="mobile-menu-toggle" aria-label="Toggle menu" aria-expanded="false">
+          <span></span>
+          <span></span>
+          <span></span>
         </button>
       </div>
-    </aside>
+    </header>
 
-    <!-- Sidebar Overlay (Mobile) -->
-    <div class="sidebar-overlay" id="sidebarOverlay" aria-hidden="true"></div>
+    <!-- Mobile Fullscreen Menu -->
+    <div class="mobile-fullscreen-menu" id="mobileFullscreenMenu">
+      <div class="mobile-nav-section">
+        <h4 class="mobile-nav-section__title">Getting Started</h4>
+        <a href="#overview" class="mobile-nav-link">Overview</a>
+        <a href="#installation" class="mobile-nav-link">Installation</a>
+        <a href="#quick-start" class="mobile-nav-link">Quick Start</a>
+      </div>
+      
+      <div class="mobile-nav-section">
+        <h4 class="mobile-nav-section__title">Core Concepts</h4>
+        <a href="#problem-scope" class="mobile-nav-link">Problem Scope</a>
+        <a href="#architecture" class="mobile-nav-link">Architecture</a>
+        <a href="#algorithms" class="mobile-nav-link">Algorithms</a>
+      </div>
+      
+      <div class="mobile-nav-section">
+        <h4 class="mobile-nav-section__title">Features</h4>
+        <a href="#planning" class="mobile-nav-link">Path Planning</a>
+        <a href="#symmetry" class="mobile-nav-link">Symmetry Reduction</a>
+        <a href="#verification" class="mobile-nav-link">Verification</a>
+        <a href="#refinement" class="mobile-nav-link">Refinement</a>
+      </div>
+      
+      <div class="mobile-nav-section">
+        <h4 class="mobile-nav-section__title">Usage</h4>
+        <a href="#commands" class="mobile-nav-link">Commands</a>
+        <a href="#configuration" class="mobile-nav-link">Configuration</a>
+        <a href="#examples" class="mobile-nav-link">Examples</a>
+      </div>
+      
+      <div class="mobile-nav-section">
+        <h4 class="mobile-nav-section__title">Resources</h4>
+        <a href="#limitations" class="mobile-nav-link">Limitations</a>
+      </div>
+    </div>
     
     <!-- Main Content -->
     <div class="docs-layout">
