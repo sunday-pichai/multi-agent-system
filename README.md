@@ -119,6 +119,12 @@ The verification module ensures collision-free operation:
 - Validates minimum separation requirements between agents
 - Generates counterexample traces when safety violations are detected
 
+**How it works in code**
+- `verification.py` builds a symmetry-reduced key via `canonicalize_state(...)` in `symmetry_reduction.py`.
+- `verify_on_quotient(...)` runs bounded trials on representative states and logs progress.
+- It reports collision counts, minimum separation violations, and a safety margin (`delta_q`) for each iteration.
+- If unsafe, a counterexample trace (positions and steps) is returned for refinement.
+
 ### Refinement Loop
 
 When verification detects unsafe behaviors:
@@ -129,6 +135,12 @@ When verification detects unsafe behaviors:
 4. Verification is repeated until the system is safe or the iteration budget is exhausted
 
 **Note**: This refinement process uses explicit constraint programming—no machine learning is involved.
+
+**How it works in code**
+- `refinement.py` converts counterexample traces into hard constraints (vertex/edge).
+- The constraint set is passed to the planner (`CooperativePlanner` in `pathfinding.py`).
+- The planner re-runs CBS/Cooperative A* with those constraints to avoid the unsafe steps.
+- `main.py` orchestrates the verify–refine loop and prints a summary (final constraints + avg collision rate).
 
 ## Configuration
 
