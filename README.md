@@ -18,6 +18,10 @@ Core properties:
 - Counterexample-driven refinement loop
 - Real-time visualization with pygame
 
+## Demo
+
+![Warehouse MAS Demo](docs/demo-gif.gif)
+
 ## System Architecture
 
 The runtime loop is:
