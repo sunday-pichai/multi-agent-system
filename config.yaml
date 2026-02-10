@@ -14,14 +14,12 @@ agents:
     - [8, 14]
 
 planning:
-  horizon: 40
-  use_cbs: true
-  cbs_max_nodes: 200
-  astar_max_nodes: 6000
-  idle_limit: 6
+  horizon: 30
+  astar_max_nodes: 3500
+  idle_limit: 4
 
 render:
-  fps: 0
+  fps: 2
 
 verification:
   min_separation: 1

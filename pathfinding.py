@@ -1,14 +1,16 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 from collections import defaultdict
-from typing import Dict, List, Optional, Set, Tuple, Iterable
+from dataclasses import dataclass
 import heapq
+from typing import Dict, Iterable, List, Optional, Set, Tuple
 
 from agent import Action, Direction, Robot
 
 
 GridPos = Tuple[int, int]
+FORWARD_DX = [0, 1, 0, -1]   # UP, RIGHT, DOWN, LEFT
+FORWARD_DY = [-1, 0, 1, 0]   # UP, RIGHT, DOWN, LEFT
 
 
 @dataclass(frozen=True)
@@ -20,6 +22,8 @@ class NodeKey:
 
 
 class ReservationTable:
+    """Time-indexed reservations for vertex and edge occupancy."""
+
     def __init__(self) -> None:
         self.positions: Dict[int, Set[GridPos]] = defaultdict(set)
         self.edges: Dict[int, Set[Tuple[GridPos, GridPos]]] = defaultdict(set)
@@ -38,6 +42,8 @@ class ReservationTable:
 
 
 class ConstraintTable:
+    """Hard constraints injected by refinement."""
+
     def __init__(self) -> None:
         self.positions: Dict[int, Set[GridPos]] = defaultdict(set)
         self.edges: Dict[int, Set[Tuple[GridPos, GridPos]]] = defaultdict(set)
@@ -67,19 +73,23 @@ def apply_action(
     grid_w: int,
     grid_h: int,
 ) -> Optional[Tuple[int, int, Direction]]:
+    """Apply one action in a bounded grid; return None only for invalid forward."""
     if action == Action.TURN_LEFT:
         return x, y, Direction((direction.value - 1) % 4)
+
     if action == Action.TURN_RIGHT:
         return x, y, Direction((direction.value + 1) % 4)
+
     if action == Action.WAIT:
         return x, y, direction
+
     if action == Action.FORWARD:
-        dx, dy = [0, 1, 0, -1], [-1, 0, 1, 0]  # U R D L
-        nx = x + dx[direction.value]
-        ny = y + dy[direction.value]
-        if not (0 <= nx < grid_w and 0 <= ny < grid_h):
-            return None
-        return nx, ny, direction
+        nx = x + FORWARD_DX[direction.value]
+        ny = y + FORWARD_DY[direction.value]
+        if 0 <= nx < grid_w and 0 <= ny < grid_h:
+            return nx, ny, direction
+        return None
+
     return None
 
 
@@ -91,9 +101,11 @@ def simulate_positions(
     grid_h: int,
     horizon: int,
 ) -> List[GridPos]:
-    positions: List[GridPos] = [start_pos]
+    """Replay actions and pad with WAIT to build a fixed-horizon trajectory."""
     x, y = start_pos
     direction = start_dir
+    positions: List[GridPos] = [(x, y)]
+
     for step in range(horizon):
         action = actions[step] if step < len(actions) else Action.WAIT
         result = apply_action(x, y, direction, action, grid_w, grid_h)
@@ -101,7 +113,25 @@ def simulate_positions(
             result = (x, y, direction)
         x, y, direction = result
         positions.append((x, y))
+
     return positions
+
+
+def _blocked_by_constraints(
+    constraints: Optional[Iterable[ConstraintTable]],
+    cur_pos: GridPos,
+    next_pos: GridPos,
+    t: int,
+) -> bool:
+    if constraints is None:
+        return False
+
+    for table in constraints:
+        if table.is_forbidden(next_pos, t):
+            return True
+        if table.is_edge_forbidden(cur_pos, next_pos, t):
+            return True
+    return False
 
 
 def astar_time(
@@ -116,15 +146,22 @@ def astar_time(
     constraints: Optional[Iterable[ConstraintTable]] = None,
     max_expansions: int = 6000,
 ) -> Optional[List[Action]]:
-    start_key = NodeKey(start_pos[0], start_pos[1], start_dir.value, 0)
-    open_heap: List[Tuple[int, int, int, NodeKey]] = []
-    seq = 0
-    heapq.heappush(open_heap, (manhattan(start_pos, goal), 0, seq, start_key))
+    """A* in a time-expanded state space: (x, y, dir, t)."""
+    start = NodeKey(start_pos[0], start_pos[1], start_dir.value, 0)
+    open_heap: List[Tuple[float, int, int, NodeKey]] = []
+    sequence = 0
+    heapq.heappush(open_heap, (float(manhattan(start_pos, goal)), 0, sequence, start))
 
-    g_score: Dict[NodeKey, int] = {start_key: 0}
-    came_from: Dict[NodeKey, Tuple[NodeKey, Action]] = {}
+    g_score: Dict[NodeKey, int] = {start: 0}
+    parent: Dict[NodeKey, Tuple[NodeKey, Action]] = {}
 
-    actions = [Action.FORWARD, Action.TURN_LEFT, Action.TURN_RIGHT, Action.WAIT]
+    action_order = [Action.FORWARD, Action.TURN_LEFT, Action.TURN_RIGHT, Action.WAIT]
+    action_bias = {
+        Action.FORWARD: 0.0,
+        Action.TURN_LEFT: 0.25,
+        Action.TURN_RIGHT: 0.25,
+        Action.WAIT: 0.60,
+    }
 
     expansions = 0
     while open_heap:
@@ -132,15 +169,15 @@ def astar_time(
         expansions += 1
         if expansions > max_expansions:
             return None
+
         cur_pos = (current.x, current.y)
         cur_dir = Direction(current.dir_value)
 
         if cur_pos == goal:
-            # reconstruct action path
             path: List[Action] = []
             node = current
-            while node in came_from:
-                prev, action = came_from[node]
+            while node in parent:
+                prev, action = parent[node]
                 path.append(action)
                 node = prev
             path.reverse()
@@ -149,64 +186,65 @@ def astar_time(
         if current.t >= max_time:
             continue
 
-        for action in actions:
-            result = apply_action(
-                current.x, current.y, cur_dir, action, grid_w, grid_h
-            )
+        for action in action_order:
+            result = apply_action(current.x, current.y, cur_dir, action, grid_w, grid_h)
             if result is None:
                 continue
+
             nx, ny, ndir = result
             nt = current.t + 1
-
             next_pos = (nx, ny)
+
             if nt == 1 and next_pos in blocked_t1:
                 continue
             if reservations.is_reserved(next_pos, nt):
                 continue
             if reservations.is_edge_reserved(next_pos, cur_pos, nt):
                 continue
-            if constraints:
-                blocked = False
-                for table in constraints:
-                    if table.is_forbidden(next_pos, nt) or table.is_edge_forbidden(cur_pos, next_pos, nt):
-                        blocked = True
-                        break
-                if blocked:
-                    continue
+            if _blocked_by_constraints(constraints, cur_pos, next_pos, nt):
+                continue
 
             next_key = NodeKey(nx, ny, ndir.value, nt)
-            tentative_g = g + 1
-            if tentative_g < g_score.get(next_key, 1_000_000):
-                g_score[next_key] = tentative_g
-                f = tentative_g + manhattan(next_pos, goal)
-                seq += 1
-                heapq.heappush(open_heap, (f, tentative_g, seq, next_key))
-                came_from[next_key] = (current, action)
+            next_g = g + 1
+            if next_g >= g_score.get(next_key, 1_000_000):
+                continue
+
+            g_score[next_key] = next_g
+            sequence += 1
+            h = manhattan(next_pos, goal)
+            f = next_g + h + action_bias[action]
+            heapq.heappush(open_heap, (f, next_g, sequence, next_key))
+            parent[next_key] = (current, action)
 
     return None
 
 
 class CooperativePlanner:
-    def __init__(self, grid_w: int, grid_h: int, plan_horizon: int = 80) -> None:
+    """Deterministic multi-agent planner with reservations and constraints."""
+
+    def __init__(self, grid_w: int, grid_h: int, plan_horizon: int = 30) -> None:
         self.grid_w = grid_w
         self.grid_h = grid_h
         self.plan_horizon = plan_horizon
+
+        self.constraints = ConstraintTable()
+
+        # Assignment state
         self.agent_to_shelf: Dict[int, int] = {}
         self.shelf_to_agent: Dict[int, int] = {}
-        self.constraints = ConstraintTable()
+
+        # Stuck detection
+        self.last_positions: Dict[int, GridPos] = {}
+        self.idle_steps: Dict[int, int] = {}
+
         try:
-            from config import USE_CBS, CBS_MAX_NODES, ASTAR_MAX_NODES, IDLE_LIMIT
-            self.use_cbs = USE_CBS
-            self.cbs_max_nodes = CBS_MAX_NODES
+            from config import ASTAR_MAX_NODES, IDLE_LIMIT
+
             self.astar_max_nodes = ASTAR_MAX_NODES
             self.idle_limit = IDLE_LIMIT
         except Exception:
-            self.use_cbs = True
-            self.cbs_max_nodes = 200
-            self.astar_max_nodes = 6000
-            self.idle_limit = 6
-        self.last_positions: Dict[int, GridPos] = {}
-        self.idle_steps: Dict[int, int] = {}
+            self.astar_max_nodes = 3500
+            self.idle_limit = 4
 
     def add_constraint_position(self, pos: GridPos, t: int) -> None:
         self.constraints.forbid_position(pos, t)
@@ -215,283 +253,234 @@ class CooperativePlanner:
         self.constraints.forbid_edge(from_pos, to_pos, t)
 
     def compute_actions(self, env) -> List[int]:
-        # Track idle agents to force reassignment and movement
+        self._track_idle_agents(env)
+        self._update_assignments(env)
+
+        reservations = ReservationTable()
+        occupied_now = {(robot.x, robot.y) for robot in env.robots}
+        actions_by_id: Dict[int, int] = {}
+
+        for robot in sorted(env.robots, key=lambda item: item.id):
+            planned_path: List[Action] = []
+
+            if self._should_pick_drop(robot, env):
+                chosen_action = Action.PICK_DROP
+            else:
+                target = self._target_for_robot(robot, env)
+                blocked_t1 = occupied_now - {(robot.x, robot.y)}
+
+                if target is not None:
+                    path = astar_time(
+                        (robot.x, robot.y),
+                        robot.dir,
+                        target,
+                        self.grid_w,
+                        self.grid_h,
+                        reservations,
+                        self.plan_horizon,
+                        blocked_t1,
+                        constraints=[self.constraints],
+                        max_expansions=self.astar_max_nodes,
+                    )
+                    if path is not None:
+                        planned_path = path
+
+                if planned_path:
+                    chosen_action = planned_path[0]
+                else:
+                    chosen_action = self._best_immediate_action(
+                        robot,
+                        target,
+                        reservations,
+                        blocked_t1,
+                    )
+
+            actions_by_id[robot.id] = chosen_action.value
+
+            reservation_actions = planned_path if planned_path else [chosen_action]
+            reservations.reserve_positions(
+                simulate_positions(
+                    (robot.x, robot.y),
+                    robot.dir,
+                    reservation_actions,
+                    self.grid_w,
+                    self.grid_h,
+                    self.plan_horizon,
+                )
+            )
+
+        return [actions_by_id[robot.id] for robot in env.robots]
+
+    def _best_immediate_action(
+        self,
+        robot: Robot,
+        target: Optional[GridPos],
+        reservations: ReservationTable,
+        blocked_t1: Set[GridPos],
+    ) -> Action:
+        cur_pos = (robot.x, robot.y)
+        candidates = [Action.FORWARD, Action.TURN_LEFT, Action.TURN_RIGHT, Action.WAIT]
+        best_choice: Optional[Tuple[float, Action]] = None
+
+        for action in candidates:
+            result = apply_action(robot.x, robot.y, robot.dir, action, self.grid_w, self.grid_h)
+            if result is None:
+                continue
+
+            nx, ny, _ = result
+            next_pos = (nx, ny)
+            t = 1
+
+            if next_pos in blocked_t1:
+                continue
+            if reservations.is_reserved(next_pos, t):
+                continue
+            if reservations.is_edge_reserved(next_pos, cur_pos, t):
+                continue
+            if self.constraints.is_forbidden(next_pos, t):
+                continue
+            if self.constraints.is_edge_forbidden(cur_pos, next_pos, t):
+                continue
+
+            score = self._immediate_action_score(action, cur_pos, next_pos, target)
+            if best_choice is None or score < best_choice[0]:
+                best_choice = (score, action)
+
+        if best_choice is None:
+            return Action.WAIT
+        return best_choice[1]
+
+    @staticmethod
+    def _immediate_action_score(
+        action: Action,
+        cur_pos: GridPos,
+        next_pos: GridPos,
+        target: Optional[GridPos],
+    ) -> float:
+        if target is None:
+            base_score = {
+                Action.FORWARD: 0.0,
+                Action.TURN_LEFT: 1.0,
+                Action.TURN_RIGHT: 1.1,
+                Action.WAIT: 3.0,
+            }
+            return base_score[action]
+
+        distance_to_target = float(manhattan(next_pos, target))
+        action_penalty = {
+            Action.FORWARD: 0.0,
+            Action.TURN_LEFT: 0.8,
+            Action.TURN_RIGHT: 0.9,
+            Action.WAIT: 2.0,
+        }[action]
+        stayed_in_place_penalty = 0.4 if next_pos == cur_pos else 0.0
+        return distance_to_target + action_penalty + stayed_in_place_penalty
+
+    def _track_idle_agents(self, env) -> None:
         for robot in env.robots:
             pos = (robot.x, robot.y)
-            last = self.last_positions.get(robot.id)
-            if last == pos:
+            previous_pos = self.last_positions.get(robot.id)
+
+            if previous_pos == pos:
                 self.idle_steps[robot.id] = self.idle_steps.get(robot.id, 0) + 1
             else:
                 self.idle_steps[robot.id] = 0
+
             self.last_positions[robot.id] = pos
+
             if self.idle_steps[robot.id] >= self.idle_limit:
                 shelf_id = self.agent_to_shelf.pop(robot.id, None)
                 if shelf_id is not None:
                     self.shelf_to_agent.pop(shelf_id, None)
                 self.idle_steps[robot.id] = 0
 
-        self._update_assignments(env)
-        reservations = ReservationTable()
-        occupied = {(r.x, r.y) for r in env.robots}
-        actions_by_id: Dict[int, int] = {}
-
-        if self.use_cbs:
-            cbs_actions = self._plan_with_cbs(env)
-            if cbs_actions is not None:
-                return cbs_actions
-
-        for robot in sorted(env.robots, key=lambda r: r.id):
-            blocked_t1 = occupied - {(robot.x, robot.y)}
-            target = self._target_for_robot(robot, env)
-            if self._should_pick_drop(robot, env):
-                action = Action.PICK_DROP
-                reservations.reserve_positions(
-                    simulate_positions(
-                        (robot.x, robot.y),
-                        robot.dir,
-                        [],
-                        self.grid_w,
-                        self.grid_h,
-                        self.plan_horizon,
-                    )
-                )
-                actions_by_id[robot.id] = action.value
-                continue
-
-            if target is None:
-                action = Action.WAIT
-                reservations.reserve_positions(
-                    simulate_positions(
-                        (robot.x, robot.y),
-                        robot.dir,
-                        [],
-                        self.grid_w,
-                        self.grid_h,
-                        self.plan_horizon,
-                    )
-                )
-                actions_by_id[robot.id] = action.value
-                continue
-
-            plan = astar_time(
-                (robot.x, robot.y),
-                robot.dir,
-                target,
-                self.grid_w,
-                self.grid_h,
-                reservations,
-                self.plan_horizon,
-                blocked_t1,
-                constraints=[self.constraints],
-                max_expansions=self.astar_max_nodes,
-            )
-            if not plan:
-                action = self._fallback_action(robot, env)
-                plan = []
-            else:
-                action = plan[0]
-
-            reservations.reserve_positions(
-                simulate_positions(
-                    (robot.x, robot.y),
-                    robot.dir,
-                    plan,
-                    self.grid_w,
-                    self.grid_h,
-                    self.plan_horizon,
-                )
-            )
-            actions_by_id[robot.id] = action.value
-
-        return [actions_by_id[r.id] for r in env.robots]
-
-    def _fallback_action(self, robot: Robot, env) -> Action:
-        # Try to move forward if possible; otherwise rotate to break symmetry
-        result = apply_action(robot.x, robot.y, robot.dir, Action.FORWARD, self.grid_w, self.grid_h)
-        if result is not None:
-            nx, ny, _ = result
-            if all((r.x, r.y) != (nx, ny) for r in env.robots):
-                return Action.FORWARD
-        return Action.TURN_RIGHT
-
-    def _plan_with_cbs(self, env) -> Optional[List[int]]:
-        robots = sorted(env.robots, key=lambda r: r.id)
-        targets: Dict[int, Optional[GridPos]] = {}
-        for robot in robots:
-            if self._should_pick_drop(robot, env):
-                targets[robot.id] = None
-            else:
-                targets[robot.id] = self._target_for_robot(robot, env)
-
-        @dataclass(order=True)
-        class CBSNode:
-            cost: int
-            constraints: Dict[int, ConstraintTable] = field(compare=False)
-            paths: Dict[int, List[Action]] = field(compare=False)
-
-        def compute_path(robot: Robot, target: GridPos, local_constraints: ConstraintTable) -> Optional[List[Action]]:
-            return astar_time(
-                (robot.x, robot.y),
-                robot.dir,
-                target,
-                self.grid_w,
-                self.grid_h,
-                ReservationTable(),
-                self.plan_horizon,
-                set(),
-                constraints=[self.constraints, local_constraints],
-                max_expansions=self.astar_max_nodes,
-            )
-
-        def build_positions(robot: Robot, actions: List[Action]) -> List[GridPos]:
-            return simulate_positions(
-                (robot.x, robot.y),
-                robot.dir,
-                actions,
-                self.grid_w,
-                self.grid_h,
-                self.plan_horizon,
-            )
-
-        def find_conflict(paths: Dict[int, List[Action]]) -> Optional[Dict]:
-            positions = {}
-            for robot in robots:
-                actions = paths.get(robot.id, [])
-                positions[robot.id] = build_positions(robot, actions)
-
-            for t in range(1, self.plan_horizon + 1):
-                seen: Dict[GridPos, int] = {}
-                for rid, pos_list in positions.items():
-                    pos = pos_list[t] if t < len(pos_list) else pos_list[-1]
-                    if pos in seen:
-                        return {'type': 'vertex', 'time': t, 'pos': pos, 'agents': [seen[pos], rid]}
-                    seen[pos] = rid
-                for a_id, a_pos in positions.items():
-                    for b_id, b_pos in positions.items():
-                        if a_id >= b_id:
-                            continue
-                        a_prev = a_pos[t - 1] if t - 1 < len(a_pos) else a_pos[-1]
-                        a_now = a_pos[t] if t < len(a_pos) else a_pos[-1]
-                        b_prev = b_pos[t - 1] if t - 1 < len(b_pos) else b_pos[-1]
-                        b_now = b_pos[t] if t < len(b_pos) else b_pos[-1]
-                        if a_prev == b_now and a_now == b_prev:
-                            return {'type': 'edge', 'time': t, 'agents': [a_id, b_id], 'from': a_prev, 'to': a_now}
-            return None
-
-        base_constraints = {r.id: ConstraintTable() for r in robots}
-        base_paths: Dict[int, List[Action]] = {}
-        total_cost = 0
-        for robot in robots:
-            if targets[robot.id] is None:
-                base_paths[robot.id] = []
-                continue
-            path = compute_path(robot, targets[robot.id], base_constraints[robot.id])
-            if path is None:
-                return None
-            base_paths[robot.id] = path
-            total_cost += len(path)
-
-        open_list: List[CBSNode] = []
-        heapq.heappush(open_list, CBSNode(total_cost, base_constraints, base_paths))
-
-        expansions = 0
-        while open_list and expansions < self.cbs_max_nodes:
-            node = heapq.heappop(open_list)
-            conflict = find_conflict(node.paths)
-            if conflict is None:
-                actions_by_id = {}
-                for robot in robots:
-                    if self._should_pick_drop(robot, env):
-                        actions_by_id[robot.id] = Action.PICK_DROP.value
-                        continue
-                    actions = node.paths.get(robot.id, [])
-                    actions_by_id[robot.id] = actions[0].value if actions else Action.WAIT.value
-                return [actions_by_id[r.id] for r in env.robots]
-
-            expansions += 1
-            for agent_id in conflict['agents']:
-                new_constraints = {aid: tbl for aid, tbl in node.constraints.items()}
-                local = ConstraintTable()
-                prior = node.constraints[agent_id]
-                for t, positions in prior.positions.items():
-                    for pos in positions:
-                        local.forbid_position(pos, t)
-                for t, edges in prior.edges.items():
-                    for edge in edges:
-                        local.forbid_edge(edge[0], edge[1], t)
-
-                if conflict['type'] == 'vertex':
-                    local.forbid_position(conflict['pos'], conflict['time'])
-                elif conflict['type'] == 'edge':
-                    local.forbid_edge(conflict['from'], conflict['to'], conflict['time'])
-
-                new_constraints[agent_id] = local
-
-                new_paths = dict(node.paths)
-                robot = next(r for r in robots if r.id == agent_id)
-                target = targets[agent_id]
-                if target is None:
-                    continue
-                new_path = compute_path(robot, target, local)
-                if new_path is None:
-                    continue
-                new_paths[agent_id] = new_path
-                new_cost = sum(len(p) for p in new_paths.values())
-                heapq.heappush(open_list, CBSNode(new_cost, new_constraints, new_paths))
-
-        return None
-
     def _update_assignments(self, env) -> None:
-        shelves_by_id = {s['id']: s for s in env.shelves}
+        shelves_by_id = {shelf["id"]: shelf for shelf in env.shelves}
+
         for agent_id, shelf_id in list(self.agent_to_shelf.items()):
             shelf = shelves_by_id.get(shelf_id)
-            if shelf is None or shelf['carried'] or not shelf['requested']:
+            if shelf is None:
+                self.agent_to_shelf.pop(agent_id, None)
+                self.shelf_to_agent.pop(shelf_id, None)
+                continue
+            if shelf["carried"] or not shelf["requested"]:
                 self.agent_to_shelf.pop(agent_id, None)
                 self.shelf_to_agent.pop(shelf_id, None)
 
-        unassigned = [
-            s for s in env.shelves
-            if s['requested'] and not s['carried'] and s['id'] not in self.shelf_to_agent
+        free_robots = [
+            robot
+            for robot in env.robots
+            if robot.carrying is None and robot.id not in self.agent_to_shelf
         ]
-        for robot in env.robots:
-            if robot.carrying:
-                continue
-            if robot.id in self.agent_to_shelf:
-                continue
-            if not unassigned:
+        free_shelves = [
+            shelf
+            for shelf in env.shelves
+            if shelf["requested"] and not shelf["carried"] and shelf["id"] not in self.shelf_to_agent
+        ]
+
+        while free_robots and free_shelves:
+            best_pair: Optional[Tuple[int, int, int]] = None
+
+            for robot_idx, robot in enumerate(free_robots):
+                for shelf_idx, shelf in enumerate(free_shelves):
+                    dist = manhattan((robot.x, robot.y), (shelf["x"], shelf["y"]))
+                    if best_pair is None or dist < best_pair[0]:
+                        best_pair = (dist, robot_idx, shelf_idx)
+
+            if best_pair is None:
                 break
-            best = min(unassigned, key=lambda s: manhattan((robot.x, robot.y), (s['x'], s['y'])))
-            self.agent_to_shelf[robot.id] = best['id']
-            self.shelf_to_agent[best['id']] = robot.id
-            unassigned.remove(best)
+
+            _, robot_idx, shelf_idx = best_pair
+            robot = free_robots.pop(robot_idx)
+            shelf = free_shelves.pop(shelf_idx)
+            self.agent_to_shelf[robot.id] = shelf["id"]
+            self.shelf_to_agent[shelf["id"]] = robot.id
 
     def _target_for_robot(self, robot: Robot, env) -> Optional[GridPos]:
-        if robot.carrying:
-            if robot.carrying.get('requested'):
+        if robot.carrying is not None:
+            if bool(robot.carrying.get("requested")):
                 return self._nearest_goal((robot.x, robot.y), env.GOALS)
             return None
 
         shelf_id = self.agent_to_shelf.get(robot.id)
         if shelf_id is None:
             return None
-        shelf = next((s for s in env.shelves if s['id'] == shelf_id), None)
-        if shelf is None:
-            return None
-        return shelf['x'], shelf['y']
 
-    def _nearest_goal(self, pos: GridPos, goals: List[GridPos]) -> GridPos:
-        return min(goals, key=lambda g: manhattan(pos, g))
-
-    def _should_pick_drop(self, robot: Robot, env) -> bool:
-        if robot.carrying and robot.carrying.get('requested'):
-            return (robot.x, robot.y) in env.GOALS
-        if robot.carrying:
-            return False
-
-        shelf = next(
-            (s for s in env.shelves if s['x'] == robot.x and s['y'] == robot.y and not s['carried']),
+        assigned_shelf = next(
+            (
+                shelf
+                for shelf in env.shelves
+                if shelf["id"] == shelf_id and shelf["requested"] and not shelf["carried"]
+            ),
             None,
         )
-        if shelf is None or not shelf.get('requested'):
+        if assigned_shelf is None:
+            self.agent_to_shelf.pop(robot.id, None)
+            self.shelf_to_agent.pop(shelf_id, None)
+            return None
+
+        return assigned_shelf["x"], assigned_shelf["y"]
+
+    @staticmethod
+    def _nearest_goal(pos: GridPos, goals: List[GridPos]) -> GridPos:
+        return min(goals, key=lambda goal: manhattan(pos, goal))
+
+    def _should_pick_drop(self, robot: Robot, env) -> bool:
+        if robot.carrying is not None:
+            if bool(robot.carrying.get("requested")):
+                return (robot.x, robot.y) in env.GOALS
             return False
-        return self.agent_to_shelf.get(robot.id) == shelf['id']
+
+        shelf_here = next(
+            (
+                shelf
+                for shelf in env.shelves
+                if shelf["x"] == robot.x and shelf["y"] == robot.y and not shelf["carried"]
+            ),
+            None,
+        )
+        if shelf_here is None:
+            return False
+        if not shelf_here.get("requested"):
+            return False
+        return self.agent_to_shelf.get(robot.id) == shelf_here["id"]

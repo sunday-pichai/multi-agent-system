@@ -1,273 +1,167 @@
 # Warehouse Multi-Agent System (MAS)
 
-[![GitHub Repository](https://img.shields.io/badge/GitHub-Repository-blue?logo=github)](https://github.com/sunday-pichai/multi-agent-system)
 [![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](#license)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-A deterministic multi-agent warehouse simulator featuring symmetry-reduced verification and verification-guided refinement. This system implements classical path planning algorithms for autonomous robots that collaboratively pick and deliver shelves while avoiding collisions.
+Deterministic multi-agent warehouse coordination with formal safety verification and constraint-guided refinement.
 
-**Repository**: [https://github.com/sunday-pichai/multi-agent-system](https://github.com/sunday-pichai/multi-agent-system)
+## Overview
 
-## Features
+This project simulates robots in a grid warehouse where agents pick requested shelves and deliver them to goal cells.  
+The system is intentionally non-ML: planning, verification, and refinement are all explicit algorithmic components.
 
-- **Deterministic Multi-Agent Planning**: Cooperative A* with Conflict-Based Search (CBS)
-- **Symmetry Reduction**: Role-orbit grouping and state canonicalization
-- **Bounded Safety Verification**: Quotient model verification with collision detection
-- **Verification-Guided Refinement**: Explicit constraint-based refinement (no machine learning)
-- **Interactive Visualization**: Real-time rendering and simulation monitoring
+Core properties:
 
-## Table of Contents
+- Deterministic planning policy
+- Collision-aware multi-agent coordination
+- Symmetry-reduced verification on quotient states
+- Counterexample-driven refinement loop
+- Real-time visualization with pygame
 
-- [Features](#features)
-- [Documentation](#documentation)
-- [Installation](#installation)
-- [Usage](#usage)
-- [How It Works](#how-it-works)
-- [Configuration](#configuration)
-- [Project Structure](#project-structure)
-- [Testing](#testing)
-- [Technical Notes](#technical-notes)
+## System Architecture
 
-## Documentation
+The runtime loop is:
 
-Interactive documentation is available at [docs/index.html](docs/index.html). Open this file in your web browser to access:
-- System architecture overview
-- Algorithm explanations
-- Demo video (`docs/demo.mp4`)
-- API documentation
+1. **Plan**: compute one action per agent with a prioritized time-aware planner.
+2. **Step**: apply actions in the environment and record conflicts/collisions.
+3. **Verify** (optional): run bounded checks over symmetry-reduced state keys.
+4. **Refine** (optional): convert counterexamples into hard planner constraints.
+
+Main modules:
+
+- `env.py`: grid environment, rewards, rendering, episode control
+- `agent.py`: robot direction/action primitives and pick/drop behavior
+- `pathfinding.py`: reservation-based planner and constraints interface
+- `symmetry_reduction.py`: role orbit detection and canonicalization
+- `verification.py`: bounded quotient safety checks
+- `refinement.py`: constraint extraction from conflicts/traces
+- `main.py`: CLI entry point and orchestration
+
+## Planning Model
+
+`CooperativePlanner` in `pathfinding.py` uses a prioritized multi-agent strategy:
+
+- Agents are assigned to requested shelves (nearest matching).
+- Agents are planned sequentially by ID.
+- Each planned trajectory reserves vertices and edges in a time-indexed reservation table.
+- A* search runs on `(x, y, dir, t)` and rejects moves violating:
+  - grid bounds
+  - reservation conflicts
+  - refinement constraints
+- If a full plan is not found in the expansion/time budget, the planner selects a deterministic immediate safe fallback action.
+
+This keeps planner behavior predictable while still handling congestion and contention.
+
+## Verification and Refinement
+
+Verification (`verify_on_quotient`) performs bounded trials and tracks:
+
+- collisions
+- minimum pairwise Manhattan separation
+- quotient safety margin (`delta_q`)
+
+If unsafe behavior is found, the returned conflict trace is consumed by refinement (`refine_planner_with_conflicts`), which adds hard constraints (vertex/edge/boundary) back into the planner.  
+The verify-refine loop is executed iteratively by `main.py`.
 
 ## Installation
 
-### Prerequisites
-
-- Python 3.8 or higher
-- pip package manager
-
-### Setup
-
-1. Clone or download this repository
-2. Navigate to the project directory:
-   ```bash
-   cd multi-agent-system
-   ```
-3. Install required dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
+```bash
+pip install -r requirements.txt
+```
 
 ## Usage
 
-### Interactive Mode
+Interactive simulation (rendered):
 
-Run the simulator with real-time visualization:
 ```bash
 python main.py --mode interactive --render
 ```
 
-### Simulation Mode
+Batch simulation:
 
-Execute multiple episodes without rendering:
 ```bash
 python main.py --mode simulate --episodes 8 --steps-per-episode 200
 ```
 
-### Evaluation Mode
+Evaluation mode:
 
-Run evaluation episodes with performance metrics:
 ```bash
 python main.py --mode eval --eval-episodes 3 --steps-per-episode 150
 ```
 
-### Verification and Refinement
+Verification + refinement:
 
-Perform bounded safety verification with refinement:
 ```bash
 python main.py --verify-refine --verify-horizon 30 --verify-trials 20
 ```
 
-## How It Works
+Symmetry inspection:
 
-### Path Planning
-
-The system employs a two-tier planning approach:
-
-- **Cooperative A\***: Plans individual agent paths in a time-expanded grid, accounting for temporal constraints
-- **Conflict-Based Search (CBS)**: Resolves multi-agent collisions by iteratively adding constraints and replanning conflicting paths
-
-### Symmetry Reduction
-
-To improve verification efficiency, the system reduces state space through:
-
-- **Role Orbits**: Agents are grouped by operational role (idle vs. carrying requested shelf)
-- **State Canonicalization**: Symmetric permutations of agent configurations are mapped to identical quotient states
-
-### Symmetry Reduction: Before vs After
-
-| Aspect | Full System | Symmetry-Reduced (Quotient) |
-| --- | --- | --- |
-| Agents represented | All N agents explicitly modeled | k role orbits (k <= 3 in this project) |
-| State size | O(N * d) full agent state | O(k * d) representative state |
-| Verification cost | Cver(n) over full dimension n = N * d | Cver(m) with m << n |
-| Counterexamples | Full traces over all agents | Lifted from quotient representatives |
-| Memory | O(n) full-state storage | O(m) reduced storage |
-
-### Bounded Safety Verification
-
-The verification module ensures collision-free operation:
-
-- Performs bounded-horizon checks on the quotient model
-- Validates minimum separation requirements between agents
-- Generates counterexample traces when safety violations are detected
-
-**How it works in code**
-- `verification.py` builds a symmetry-reduced key via `canonicalize_state(...)` in `symmetry_reduction.py`.
-- `verify_on_quotient(...)` runs bounded trials on representative states and logs progress.
-- It reports collision counts, minimum separation violations, and a safety margin (`delta_q`) for each iteration.
-- If unsafe, a counterexample trace (positions and steps) is returned for refinement.
-
-### Refinement Loop
-
-When verification detects unsafe behaviors:
-
-1. Counterexample traces are analyzed
-2. Hard constraints are extracted and added to the planning system
-3. The planner is re-executed with updated constraints
-4. Verification is repeated until the system is safe or the iteration budget is exhausted
-
-**Note**: This refinement process uses explicit constraint programming—no machine learning is involved.
-
-**How it works in code**
-- `refinement.py` converts counterexample traces into hard constraints (vertex/edge).
-- The constraint set is passed to the planner (`CooperativePlanner` in `pathfinding.py`).
-- The planner re-runs CBS/Cooperative A* with those constraints to avoid the unsafe steps.
-- `main.py` orchestrates the verify–refine loop and prints a summary (final constraints + avg collision rate).
+```bash
+python main.py --detect-symmetry
+```
 
 ## Configuration
 
-The system behavior can be customized by editing [config.yaml](config.yaml):
+Runtime configuration is loaded from `config.yaml`.
 
-### Grid Settings
 ```yaml
 grid:
-  width: 16          # Grid width in cells
-  height: 16         # Grid height in cells
-  cell_size: 30      # Pixel size for rendering
-```
+  width: 16
+  height: 16
+  cell_size: 30
 
-### Agent Configuration
-```yaml
 agents:
-  num_agents: 6      # Number of robots
-  num_shelves: 8     # Number of shelves in warehouse
-  goals:             # Goal locations (delivery points)
+  num_agents: 6
+  num_shelves: 8
+  goals:
     - [7, 14]
     - [8, 14]
-```
 
-### Planning Parameters
-```yaml
 planning:
-  horizon: 40              # Planning horizon (time steps)
-  use_cbs: true           # Enable Conflict-Based Search
-  cbs_max_nodes: 200      # CBS node expansion limit
-  astar_max_nodes: 6000   # A* node expansion limit
-  idle_limit: 6           # Maximum idle time for agents
-```
+  horizon: 30
+  astar_max_nodes: 3500
+  idle_limit: 4
 
-### Verification Settings
-```yaml
-verification:
-  min_separation: 1    # Minimum required distance between agents
-  horizon: 30         # Verification time horizon
-  trials: 20          # Number of verification trials
-```
-
-### Refinement Configuration
-```yaml
-refinement:
-  iterations: 2         # Maximum refinement iterations
-  max_constraints: 100  # Maximum number of constraints to add
-```
-
-### Rendering Options
-```yaml
 render:
-  fps: 0    # Frames per second (0 = uncapped for maximum responsiveness)
+  fps: 2
+
+verification:
+  min_separation: 1
+  horizon: 30
+  trials: 20
+
+refinement:
+  iterations: 2
+  max_constraints: 100
 ```
 
-## Project Structure
+Notes:
 
-```
-MAS_FinalProject/
-├── main.py                    # Entry point and CLI interface
-├── env.py                     # Warehouse environment implementation
-├── agent.py                   # Agent logic and behavior
-├── pathfinding.py            # Cooperative A* and CBS algorithms
-├── symmetry_reduction.py     # State canonicalization and orbit computation
-├── verification.py           # Safety verification module
-├── refinement.py             # Constraint-based refinement loop
-├── config.py                 # Configuration loader
-├── config.yaml               # System configuration file
-├── requirements.txt          # Python dependencies
-├── README.md                 # This file
-├── docs/                     # Documentation website
-│   ├── index.html
-│   ├── script.js
-│   ├── styles.css
-│   └── demo.mp4
-└── tests/                    # Test suite
-    ├── __init__.py
-    ├── run_tests.py         # Test runner
-    ├── test_agent.py        # Agent unit tests
-    ├── test_env.py          # Environment tests
-    ├── test_rewards.py      # Reward system tests
-    ├── test_training.py     # Planning tests
-    └── test_integration.py  # Integration tests
-```
+- `render.fps: 2` gives approximately `0.5s` per rendered step.
+- CLI flags override YAML defaults when provided.
 
 ## Testing
 
-Run the complete test suite:
+Run all tests:
 
 ```bash
 python tests/run_tests.py
 ```
 
-Individual test modules can be run directly:
+Run focused suites:
+
 ```bash
-python -m pytest tests/test_agent.py
-python -m pytest tests/test_env.py
-python -m pytest tests/test_integration.py
+python tests/test_refinement.py
+python tests/test_verification_refinement.py
 ```
 
-## Technical Notes
+## Documentation
 
-- **Fully Deterministic**: This system uses classical algorithms exclusively—no machine learning or neural network components
-- **No ML Dependencies**: All ML-related code and artifacts have been removed for clarity and simplicity
-- **Performance**: Rendering FPS is uncapped by default (`render.fps: 0`) for optimal responsiveness
-- **Scalability**: The symmetry reduction technique significantly improves verification performance for systems with many identical agents
+Static documentation site:
 
-## Contributing
-
-Contributions are welcome! Please feel free to submit issues or pull requests to the [GitHub repository](https://github.com/sunday-pichai/multi-agent-system).
+- `docs/index.html`
 
 ## License
 
-This project is available under the MIT License. See the LICENSE file for more details.
-
-## Author
-
-**Sunday Pichai**
-- GitHub: [@sunday-pichai](https://github.com/sunday-pichai)
-- Repository: [multi-agent-system](https://github.com/sunday-pichai/multi-agent-system)
-
-## Acknowledgments
-
-This project implements classical multi-agent path planning algorithms including:
-- Cooperative A* (CA*)
-- Conflict-Based Search (CBS)
-- Symmetry reduction techniques for formal verification
-
----
-
-For questions, issues, or feature requests, please visit the [GitHub Issues](https://github.com/sunday-pichai/multi-agent-system/issues) page.
+MIT License. See `LICENSE`.

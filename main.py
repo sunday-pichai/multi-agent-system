@@ -1,30 +1,34 @@
-"""Entry point for the Warehouse MAS project (deterministic planning)."""
+"""CLI entry point for the deterministic warehouse MAS project."""
+
 import argparse
 import logging
 import random
 import sys
+from typing import Optional
+
+import pygame
 
 import config as cfg
 from env import WarehouseEnv
 from pathfinding import CooperativePlanner
-from verification import verify_on_quotient
 from refinement import refine_planner_with_conflicts
+from verification import verify_on_quotient
 
 
 def set_seed(seed: int) -> None:
     random.seed(seed)
 
 
-def run_interactive(args):
+def run_interactive(args: argparse.Namespace) -> None:
     env = WarehouseEnv(render=True)
     planner = CooperativePlanner(env.grid_w, env.grid_h, plan_horizon=args.plan_horizon)
 
     try:
         while True:
-            for event in __import__('pygame').event.get():
-                if event.type == __import__('pygame').QUIT or (
-                    event.type == __import__('pygame').KEYDOWN and event.key == __import__('pygame').K_q
-                ):
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    raise KeyboardInterrupt
+                if event.type == pygame.KEYDOWN and event.key == pygame.K_q:
                     raise KeyboardInterrupt
 
             actions = planner.compute_actions(env)
@@ -33,45 +37,45 @@ def run_interactive(args):
                 env.reset()
             env.render()
     except KeyboardInterrupt:
-        __import__('pygame').quit()
+        pygame.quit()
         sys.exit(0)
 
 
-def run_simulation(args):
-    logger = logging.getLogger('warehouse')
+def run_simulation(args: argparse.Namespace) -> None:
+    logger = logging.getLogger("warehouse")
     env = WarehouseEnv(render=args.render)
     planner = CooperativePlanner(env.grid_w, env.grid_h, plan_horizon=args.plan_horizon)
 
     total_collisions = 0
-
-    for ep in range(args.episodes):
+    for episode_idx in range(args.episodes):
         env.reset()
-        episode_collisions = 0
-        steps = 0
         done = False
+        steps = 0
 
         while not done and steps < args.steps_per_episode:
             actions = planner.compute_actions(env)
-            _, _, done, cols, _ = env.step(actions)
-            episode_collisions += cols
-            total_collisions += cols
+            _, _, done, episode_collisions, _ = env.step(actions)
+            total_collisions += episode_collisions
             steps += 1
 
             if args.render:
                 env.render()
 
-        if (ep + 1) % args.log_interval == 0:
-            avg = total_collisions / ((ep + 1) * env.num_agents) if env.num_agents else 0
+        if (episode_idx + 1) % args.log_interval == 0:
+            if env.num_agents > 0:
+                avg = total_collisions / ((episode_idx + 1) * env.num_agents)
+            else:
+                avg = 0.0
             logger.info(
                 "Ep %d/%d avg_collisions_per_agent_per_episode=%.3f",
-                ep + 1,
+                episode_idx + 1,
                 args.episodes,
                 avg,
             )
 
 
-def run_eval(args):
-    logger = logging.getLogger('warehouse')
+def run_eval(args: argparse.Namespace) -> None:
+    logger = logging.getLogger("warehouse")
     env = WarehouseEnv(render=False)
     planner = CooperativePlanner(env.grid_w, env.grid_h, plan_horizon=args.plan_horizon)
 
@@ -85,13 +89,16 @@ def run_eval(args):
     logger.info("Eval avg collisions per agent per episode: %.3f", rate)
 
 
-def run_verify_refine(args, planner: CooperativePlanner = None):
-    logger = logging.getLogger('warehouse')
+def run_verify_refine(
+    args: argparse.Namespace, planner: Optional[CooperativePlanner] = None
+) -> CooperativePlanner:
+    logger = logging.getLogger("warehouse")
     env = WarehouseEnv(render=False)
     if planner is None:
         planner = CooperativePlanner(env.grid_w, env.grid_h, plan_horizon=args.plan_horizon)
 
-    for it in range(args.refine_iterations):
+    last_result = None
+    for iteration in range(args.refine_iterations):
         result = verify_on_quotient(
             env,
             planner,
@@ -102,38 +109,41 @@ def run_verify_refine(args, planner: CooperativePlanner = None):
             progress_every=args.verify_progress,
             logger=logger,
         )
+        last_result = result
 
-        if result.get('safe', False):
+        if result.get("safe", False):
             logger.info(
                 "Verification passed at iteration %d (delta_q=%.2f).",
-                it + 1,
-                float(result.get('delta_q', 0.0)),
+                iteration + 1,
+                float(result.get("delta_q", 0.0)),
             )
             _log_refine_summary(logger, planner, result)
             return planner
 
         logger.warning(
             "Verification failed at iteration %d. Applying refinement...",
-            it + 1,
+            iteration + 1,
         )
-        conflicts = result.get('conflicts', [])
-        trace = result.get('counterexample')
+        conflicts = result.get("conflicts", [])
+        counterexample_trace = result.get("counterexample")
         summary = refine_planner_with_conflicts(
             planner,
             conflicts,
-            trace=trace,
+            trace=counterexample_trace,
             max_constraints=args.refine_max_constraints,
         )
         logger.info("Refinement applied: %s", summary)
 
     logger.warning("Verify-refine loop exhausted without full safety.")
-    if 'result' in locals():
-        _log_refine_summary(logger, planner, result)
+    if last_result is not None:
+        _log_refine_summary(logger, planner, last_result)
     return planner
 
 
-def _log_refine_summary(logger, planner: CooperativePlanner, result):
-    avg_rate = float(result.get('avg_collision_rate', 0.0))
+def _log_refine_summary(
+    logger: logging.Logger, planner: CooperativePlanner, result: dict
+) -> None:
+    avg_rate = float(result.get("avg_collision_rate", 0.0))
     logger.info("Average collision rate (per step): %.4f", avg_rate)
 
     positions = []
@@ -155,9 +165,14 @@ def _log_refine_summary(logger, planner: CooperativePlanner, result):
         logger.info("Edge constraints sample: %s", sample)
 
 
-def main(argv=None):
+def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Warehouse MAS - deterministic planning")
-    parser.add_argument("--mode", choices=["interactive", "simulate", "eval"], default="interactive", help="Run mode")
+    parser.add_argument(
+        "--mode",
+        choices=["interactive", "simulate", "eval"],
+        default="interactive",
+        help="Run mode",
+    )
     parser.add_argument("--render", action="store_true", help="Enable rendering (interactive/simulate)")
     parser.add_argument("--config", type=str, default="config.yaml", help="Path to YAML config file")
     parser.add_argument("--seed", type=int, default=None, help="Random seed for reproducibility")
@@ -167,26 +182,38 @@ def main(argv=None):
     parser.add_argument("--log-interval", type=int, default=1, help="Logging interval (episodes)")
     parser.add_argument("--eval-episodes", type=int, default=3, help="Number of episodes for evaluation")
     parser.add_argument("--plan-horizon", type=int, default=None, help="Planning horizon (timesteps)")
-    parser.add_argument("--detect-symmetry", action="store_true", help="Run symmetry detection on a freshly-reset environment and print orbits")
-    parser.add_argument("--verify-refine", action="store_true", help="Run verification-guided refinement loop")
+    parser.add_argument(
+        "--detect-symmetry",
+        action="store_true",
+        help="Run symmetry detection on a fresh environment and print orbits",
+    )
+    parser.add_argument("--verify-refine", action="store_true", help="Run verification-guided refinement")
     parser.add_argument("--verify-horizon", type=int, default=None, help="Verification horizon (timesteps)")
-    parser.add_argument("--verify-trials", type=int, default=None, help="Verification trials (random resets)")
+    parser.add_argument("--verify-trials", type=int, default=None, help="Verification trials (resets)")
     parser.add_argument("--verify-include-shelves", action="store_true", help="Include shelves in quotient key")
-    parser.add_argument("--verify-progress", type=int, default=1, help="Progress update frequency for verification (trials)")
-    parser.add_argument("--min-separation", type=int, default=None, help="Minimum Manhattan separation for safety")
-    parser.add_argument("--refine-iterations", type=int, default=None, help="Max verify/refine iterations")
-    parser.add_argument("--refine-max-constraints", type=int, default=None, help="Max constraints added per iteration")
+    parser.add_argument("--verify-progress", type=int, default=1, help="Progress update frequency (trials)")
+    parser.add_argument(
+        "--min-separation",
+        type=int,
+        default=None,
+        help="Minimum Manhattan separation for safety",
+    )
+    parser.add_argument(
+        "--refine-iterations",
+        type=int,
+        default=None,
+        help="Maximum verify/refine iterations",
+    )
+    parser.add_argument(
+        "--refine-max-constraints",
+        type=int,
+        default=None,
+        help="Maximum constraints added per iteration",
+    )
+    return parser
 
-    args = parser.parse_args(argv)
 
-    logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s: %(message)s')
-
-    # Load YAML overrides if available
-    try:
-        cfg.load_from_yaml(args.config)
-    except Exception as e:
-        logging.getLogger('warehouse').warning('Failed to load config from %s: %s', args.config, e)
-
+def _apply_defaults(args: argparse.Namespace) -> None:
     if args.plan_horizon is None:
         args.plan_horizon = cfg.PLAN_HORIZON
     if args.verify_horizon is None:
@@ -200,33 +227,51 @@ def main(argv=None):
     if args.refine_max_constraints is None:
         args.refine_max_constraints = cfg.REFINE_MAX_CONSTRAINTS
 
-    # Set global seed for reproducibility if provided
+
+def main(argv=None) -> None:
+    parser = _build_parser()
+    args = parser.parse_args(argv)
+
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s: %(message)s")
+    logger = logging.getLogger("warehouse")
+
+    try:
+        cfg.load_from_yaml(args.config)
+    except Exception as exc:
+        logger.warning("Failed to load config from %s: %s", args.config, exc)
+
+    _apply_defaults(args)
+
     if args.seed is not None:
         set_seed(args.seed)
-        logging.getLogger('warehouse').info('Random seed set to %d', args.seed)
+        logger.info("Random seed set to %d", args.seed)
 
-    if args.cell_size:
-        import config as _config
-        _config.CELL_SIZE = args.cell_size
+    if args.cell_size is not None:
+        cfg.CELL_SIZE = args.cell_size
 
     if args.detect_symmetry:
         env = WarehouseEnv(render=False)
         env.reset()
         from symmetry_reduction import build_quotient_model
-        q = build_quotient_model(env)
-        print('Detected orbits:')
-        for orbit in q['orbits']:
+
+        quotient = build_quotient_model(env)
+        print("Detected orbits:")
+        for orbit in quotient["orbits"]:
             print(orbit)
-        print('Quotient summary:', q)
-    elif args.verify_refine:
+        print("Quotient summary:", quotient)
+        return
+
+    if args.verify_refine:
         run_verify_refine(args)
-    elif args.mode == 'interactive':
+        return
+
+    if args.mode == "interactive":
         run_interactive(args)
-    elif args.mode == 'simulate':
+    elif args.mode == "simulate":
         run_simulation(args)
-    elif args.mode == 'eval':
+    elif args.mode == "eval":
         run_eval(args)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

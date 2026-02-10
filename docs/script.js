@@ -216,17 +216,14 @@ function createHiResCanvas(canvas, minHeight = CANVAS_MIN_HEIGHT) {
 
 const steps = {
   plan: {
-    title: "Plan (Cooperative A* + CBS)",
+    title: "Plan (Prioritized Time-Aware A*)",
     text:
-      "Each agent plans a time-expanded path using Cooperative A*. CBS resolves conflicts by adding constraints and replanning until paths are consistent.",
-    code: `Cooperative A*:
+      "Agents plan in a time-expanded grid. Earlier agents reserve cells/edges, and later agents route around those reservations with deterministic fallback when needed.",
+    code: `Prioritized planner:
 - time-expanded grid
 - reservation table
-
-CBS:
-- detect conflicts
-- add constraint
-- replan for agent`,
+- edge/vertex conflict checks
+- deterministic fallback`,
   },
   symmetry: {
     title: "Symmetry Reduction",
@@ -412,7 +409,7 @@ window.addEventListener('resize', () => {
 function updateFlow(active) {
   flowButtons.forEach((b) => b.classList.toggle("is-active", b.dataset.flow === active));
   const captions = {
-    plan: "Plan: Cooperative A* + CBS generates conflict-free paths.",
+    plan: "Plan: prioritized time-aware A* with reservations.",
     symmetry: "Symmetry: role-orbit reduction and canonicalization.",
     verify: "Verify: bounded safety checks on the quotient model.",
     refine: "Refine: constraints injected from counterexamples.",
@@ -719,7 +716,7 @@ if (algoCanvas) {
     { x: 6, y: 6 }, { x: 7, y: 6 }, { x: 8, y: 6 }, { x: 8, y: 7 },
   ];
 
-  // CBS Demo: Warehouse scenario with two agents fetching shelves
+  // Conflict-resolution demo: two agents fetching shelves
   // Agent 1 (orange): moves to shelf at (2,5), then to goal at (8,1)
   // Agent 2 (blue): moves to shelf at (7,3), then to goal at (1,8)
   // They conflict at position (5,5) at the same time
@@ -739,7 +736,7 @@ if (algoCanvas) {
     { x: 4, y: 5 }, { x: 3, y: 6 }, { x: 2, y: 7 }, { x: 1, y: 7 }, { x: 1, y: 8 }
   ];
   
-  // Replanned paths after CBS adds constraint to avoid (5,5)
+  // Replanned paths after conflict-aware rerouting avoids (5,5)
   const cbsAgent1Replanned = [
     { x: 1, y: 7 }, { x: 2, y: 6 }, { x: 2, y: 5 }, { x: 3, y: 5 }, { x: 4, y: 5 },
     { x: 4, y: 4 }, { x: 5, y: 4 }, { x: 6, y: 4 }, { x: 7, y: 3 }, { x: 8, y: 2 }, { x: 8, y: 1 }
@@ -927,7 +924,7 @@ if (algoCanvas) {
     algoCaption.textContent = "A*: frontier expansion (blue) and final path (amber).";
   }
 
-  function drawCBS() {
+  function drawPrioritized() {
     // Phase 1 (tick 0-8): Show initial conflicting paths
     // Phase 2 (tick 9-18): Show replanned conflict-free paths
     const phase1Duration = 9;
@@ -1019,9 +1016,9 @@ if (algoCanvas) {
       ctx.fillText("2", pB.x + cell/2, pB.y + cell/2);
       
       if (t >= 5) {
-        algoCaption.textContent = "CBS Phase 1: Collision detected! Both agents at (5,5) at time step " + t + ".";
+        algoCaption.textContent = "Prioritized planner phase 1: initial plans conflict at (5,5), time step " + t + ".";
       } else {
-        algoCaption.textContent = "CBS Phase 1: Agents moving to shelves - conflicting paths detected.";
+        algoCaption.textContent = "Prioritized planner phase 1: agents plan toward shelves before reservation-based conflict handling.";
       }
     } else {
       // Phase 2: Show replanned paths
@@ -1117,9 +1114,9 @@ if (algoCanvas) {
       ctx.fillText("2", pB.x + cell/2, pB.y + cell/2);
       
       if (t < 4) {
-        algoCaption.textContent = "CBS Phase 2: Replanning with constraints - agents taking modified paths, avoiding (5,5).";
+        algoCaption.textContent = "Prioritized planner phase 2: reservation-aware rerouting avoids (5,5).";
       } else {
-        algoCaption.textContent = "CBS Phase 2: Conflict resolved! Agents reach goals safely without colliding.";
+        algoCaption.textContent = "Prioritized planner phase 2: conflict resolved, both agents reach goals safely.";
       }
     }
   }
@@ -1502,8 +1499,8 @@ if (algoCanvas) {
     
     if (algoMode === "astar") {
       drawAStar();
-    } else if (algoMode === "cbs") {
-      drawCBS();
+    } else if (algoMode === "prioritized") {
+      drawPrioritized();
     } else if (algoMode === "symmetry") {
       drawSymmetry();
     } else if (algoMode === "quotient") {
@@ -1521,7 +1518,7 @@ if (algoCanvas) {
     
     // Different timing for different algorithms
     const delay = algoMode === "symmetry" ? 6000 : 
-                  (algoMode === "cbs" ? 3000 : 
+                  (algoMode === "prioritized" ? 3000 : 
                   (algoMode === "quotient" ? 3500 : 
                   (algoMode === "verification" ? 3000 : 
                   (algoMode === "refinement" ? 3500 : 500))));
@@ -1529,7 +1526,7 @@ if (algoCanvas) {
     if (algoPlaying && elapsed > delay) {
       // Different tick limits for different algorithms
       let maxTick = 10;
-      if (algoMode === "cbs") maxTick = 16;
+      if (algoMode === "prioritized") maxTick = 16;
       if (algoMode === "symmetry") maxTick = symmetryScenarios.length;
       if (algoMode === "quotient") maxTick = quotientComparisonScenarios.length;
       if (algoMode === "verification") maxTick = verificationScenarios.length;
@@ -1554,8 +1551,8 @@ if (algoCanvas) {
       if (algoCaption) {
         if (algoMode === "astar") {
           algoCaption.textContent = "A*: frontier expansion (blue) and final path (amber).";
-        } else if (algoMode === "cbs") {
-          algoCaption.textContent = "CBS Phase 1: Agents moving to shelves - conflicting paths detected.";
+        } else if (algoMode === "prioritized") {
+          algoCaption.textContent = "Prioritized planner phase 1: agents plan toward shelves before reservation-based conflict handling.";
         } else if (algoMode === "symmetry") {
           algoCaption.textContent = symmetryScenarios[0].caption;
         } else if (algoMode === "quotient") {

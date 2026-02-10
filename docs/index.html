@@ -6,7 +6,7 @@
     <title>Warehouse MAS Documentation — Multi-Agent System with Formal Verification</title>
     
     <!-- Meta tags -->
-    <meta name="description" content="Documentation for a multi-agent warehouse simulator with Cooperative A* + CBS, symmetry-reduced quotient verification, and constraint-based refinement." />
+    <meta name="description" content="Documentation for a multi-agent warehouse simulator with prioritized time-aware A*, symmetry-reduced quotient verification, and constraint-based refinement." />
     <meta name="og:title" content="Warehouse MAS Documentation" />
     <meta name="og:description" content="Multi-agent warehouse simulator with formal verification and symmetry reduction" />
     <meta name="theme-color" content="#3182ce" />
@@ -148,7 +148,7 @@
             Deterministic multi-agent coordination with formal verification, symmetry reduction, and constraint-based planning
           </p>
           <div class="badge-row">
-            <span class="badge">CBS + A*</span>
+            <span class="badge">Prioritized A*</span>
             <span class="badge">Symmetry Reduction</span>
             <span class="badge">Formal Verification</span>
             <span class="badge">Python 3.8+</span>
@@ -171,7 +171,7 @@
               <div class="info-card info-card--primary">
                 <h3>Key Features</h3>
                 <ul class="feature-list">
-                  <li><strong>Cooperative A* + CBS:</strong> Time-expanded pathfinding with conflict resolution</li>
+                  <li><strong>Prioritized Time-Aware A*:</strong> Reservation-based pathfinding with deterministic conflict avoidance</li>
                   <li><strong>Symmetry Reduction:</strong> Orbit-based state space reduction for scalable verification</li>
                   <li><strong>Bounded Verification:</strong> Formal safety checks on quotient models</li>
                   <li><strong>Constraint Refinement:</strong> Iterative constraint extraction from counterexamples</li>
@@ -291,14 +291,14 @@ source .venv/bin/activate  # Linux/Mac</code></pre>
             <div class="section-content">
               <p>
                 Agents operate on a discrete grid with pickup/drop objectives. Planning is
-                deterministic (Cooperative A* with CBS conflict resolution). Safety is
+                deterministic (prioritized time-aware A* with reservations). Safety is
                 checked via bounded verification on a symmetry-reduced quotient model.
               </p>
               
               <div class="grid-4">
                 <div class="feature-card">
                   <h3>Planning</h3>
-                  <p>Cooperative A* generates time-expanded paths. CBS resolves conflicts by adding constraints and replanning affected agents.</p>
+                  <p>Agents plan sequentially in time-expanded space, reserving positions and edges to prevent vertex and head-on conflicts.</p>
                 </div>
                 <div class="feature-card">
                   <h3>Symmetry</h3>
@@ -322,31 +322,27 @@ source .venv/bin/activate  # Linux/Mac</code></pre>
             <div class="section-content">
               
               <div class="algo-card" id="planning">
-                <h3>Path Planning (CBS + Cooperative A*)</h3>
+                <h3>Path Planning (Prioritized Time-Aware A*)</h3>
                 <p>
-                  Each agent plans a time-expanded path using Cooperative A*. CBS resolves conflicts 
-                  by adding constraints and replanning until paths are consistent.
+                  Each agent plans in a time-expanded grid while respecting reservations from already-planned agents.
+                  When a full path is unavailable, a deterministic immediate fallback keeps agents moving safely.
                 </p>
                 <div class="code-block">
-                  <pre><code>Cooperative A*:
+                  <pre><code>Planner:
 - time-expanded grid
 - reservation table
-- avoid occupied cells
-
-CBS:
-- detect conflicts
-- add constraints
-- replan for agent</code></pre>
+- edge + vertex conflict checks
+- deterministic fallback action</code></pre>
                 </div>
                 
                 <h4 style="margin-top: 2rem;">Interactive Demo: A* Pathfinding</h4>
                 <div class="demo-controls">
                   <button class="demo-btn is-active" data-algo="astar">A* Expansion</button>
-                  <button class="demo-btn" data-algo="cbs">CBS Conflict Resolution</button>
+                  <button class="demo-btn" data-algo="prioritized">Prioritized Planning</button>
                 </div>
                 <div class="demo-canvas-wrapper">
                   <canvas id="algoCanvas" width="560" height="336"></canvas>
-                  <p class="canvas-caption" id="algoCaption">A*: expanding frontier toward the goal</p>
+                  <p class="canvas-caption" id="algoCaption">A*: frontier expansion toward the goal</p>
                 </div>
               </div>
 
@@ -469,11 +465,9 @@ CBS:
               <h3>Planning Configuration</h3>
               <div class="code-block">
                 <pre><code>planning:
-  horizon: 40
-  use_cbs: true
-  cbs_max_nodes: 200
-  astar_max_nodes: 6000
-  idle_limit: 6</code></pre>
+  horizon: 30
+  astar_max_nodes: 3500
+  idle_limit: 4</code></pre>
               </div>
 
               <h3>Verification Configuration</h3>
@@ -486,9 +480,11 @@ CBS:
 
               <h3>Environment Configuration</h3>
               <div class="code-block">
-                <pre><code>environment:
-  grid_width: 16
-  grid_height: 16
+                <pre><code>grid:
+  width: 16
+  height: 16
+
+agents:
   num_agents: 6
   num_shelves: 8</code></pre>
               </div>
