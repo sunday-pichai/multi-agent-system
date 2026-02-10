@@ -9,6 +9,7 @@ from agent import Action, Robot
 
 
 pygame.init()
+GridPos = Tuple[int, int]
 
 
 class WarehouseEnv:
