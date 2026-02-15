@@ -12,23 +12,38 @@ except Exception:
 logger = logging.getLogger("warehouse.config")
 
 
-# Colors
+# Colors - Advanced Minimal UI Palette
 WHITE = (255, 255, 255)
-BLACK = (0, 0, 0)
-GRAY = (140, 140, 140)
+BLACK = (20, 20, 25)
+GRAY = (230, 230, 235)  # Very light grid
 DARK_BLUE = (40, 60, 120)
 TEAL = (0, 140, 140)
 ORANGE = (255, 160, 60)
 RED = (220, 40, 40)
-GOAL_COLOR = (80, 80, 80)
-GOLD = (255, 215, 80)
-GREEN = (60, 220, 100)
+GOAL_COLOR = (50, 130, 200)  # Clean blue
+GOLD = (255, 200, 50)
+GREEN = (70, 200, 120)
+
+# Advanced UI Colors
+BG_PURE = (255, 255, 255)  # Pure white background
+GRID_SUBTLE = (245, 245, 248)  # Ultra-subtle grid
+ROBOT_PRIMARY = (60, 140, 255)  # Vibrant blue
+ROBOT_CARRYING = (255, 140, 60)  # Warm orange
+ROBOT_SHADOW = (40, 100, 200)  # Darker blue for depth
+SHELF_IDLE = (180, 180, 190)  # Neutral gray
+SHELF_ACTIVE = (70, 200, 120)  # Fresh green
+SHELF_SHADOW = (50, 150, 90)  # Darker green
+GOAL_PRIMARY = (50, 130, 200)  # Clean blue
+GOAL_SHADOW = (30, 100, 160)  # Darker blue
+TEXT_PRIMARY = (30, 30, 35)  # Dark text
+TEXT_ON_DARK = (255, 255, 255)  # White text
+ACCENT_GOLD = (255, 200, 50)  # Gold accent
 
 
 # Environment defaults
 GRID_W: int = 16
 GRID_H: int = 16
-CELL_SIZE: int = 30
+CELL_SIZE: int = 80  # Larger cells for 1440p resolution (2560x1440 = 32x18 cells at 80px)
 NUM_AGENTS: int = 6
 NUM_SHELVES: int = 8
 GOALS: List[Tuple[int, int]] = [(7, 14), (8, 14)]

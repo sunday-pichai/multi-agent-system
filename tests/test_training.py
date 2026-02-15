@@ -57,6 +57,21 @@ def test_planner_avoids_head_on_collision():
     assert collisions == 0, "Planner should avoid immediate head-on collisions"
 
 
+def test_planner_waits_when_no_requested_shelves():
+    env = WarehouseEnv(render=False)
+    env.reset()
+
+    for shelf in env.shelves:
+        shelf['requested'] = False
+        shelf['carried'] = False
+
+    planner = CooperativePlanner(env.grid_w, env.grid_h, plan_horizon=10)
+    actions = planner.compute_actions(env)
+
+    assert len(actions) == env.num_agents
+    assert all(action == Action.WAIT.value for action in actions), "Idle robots should WAIT when no task exists"
+
+
 if __name__ == '__main__':
     print("Testing planning components...")
     test_planner_action_output()
@@ -67,5 +82,8 @@ if __name__ == '__main__':
 
     test_planner_avoids_head_on_collision()
     print("? Collision avoidance test passed")
+
+    test_planner_waits_when_no_requested_shelves()
+    print("? No-task waiting test passed")
 
     print("\nAll planning component tests passed! ?")

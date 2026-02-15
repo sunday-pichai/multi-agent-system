@@ -3,6 +3,7 @@ import random
 from typing import Dict, List, Optional, Tuple
 
 import pygame
+import pygame.gfxdraw
 
 import config as cfg
 from agent import Action, Robot
@@ -25,12 +26,38 @@ class WarehouseEnv:
         self.render_fps = cfg.RENDER_FPS
 
         if self.render_enabled:
-            width_px = self.grid_w * cfg.CELL_SIZE
-            height_px = self.grid_h * cfg.CELL_SIZE
+            # 1440p resolution: 2560x1440
+            # Calculate cell size to fit grid nicely
+            target_width = 2560
+            target_height = 1440
+            cell_size_w = target_width // self.grid_w
+            cell_size_h = target_height // self.grid_h
+            # Use the smaller to ensure it fits
+            optimal_cell_size = min(cell_size_w, cell_size_h)
+            # Use config cell size if it's reasonable, otherwise use calculated
+            if cfg.CELL_SIZE > 0:
+                cell_size = min(cfg.CELL_SIZE, optimal_cell_size)
+            else:
+                cell_size = optimal_cell_size
+            
+            width_px = self.grid_w * cell_size
+            height_px = self.grid_h * cell_size
             self.screen = pygame.display.set_mode((width_px, height_px))
             pygame.display.set_caption("Warehouse Simulation")
             self.clock = pygame.time.Clock()
-            self.font = pygame.font.SysFont("consolas", 18)
+            # High-quality fonts for crisp rendering - scale with cell size
+            font_size = max(14, cell_size // 5)
+            font_small_size = max(10, cell_size // 7)
+            font_tiny_size = max(8, cell_size // 10)
+            try:
+                self.font = pygame.font.SysFont("arial", font_size, bold=True)
+                self.font_small = pygame.font.SysFont("arial", font_small_size, bold=True)
+                self.font_tiny = pygame.font.SysFont("arial", font_tiny_size)
+            except:
+                self.font = pygame.font.Font(None, font_size)
+                self.font_small = pygame.font.Font(None, font_small_size)
+                self.font_tiny = pygame.font.Font(None, font_tiny_size)
+            self.cell_size = cell_size
 
         self.reset()
 
@@ -67,6 +94,7 @@ class WarehouseEnv:
         self.last_collisions = 0
         self.last_delivered = 0
         self.last_conflicts: List[Dict] = []
+        self._planner_allowed_shelf_entries: Dict[int, GridPos] = {}
         return [self.get_state(robot) for robot in self.robots]
 
     def get_state(self, robot: Robot) -> List[float]:
@@ -140,51 +168,113 @@ class WarehouseEnv:
         collisions = 0
         delivered_count = 0
 
+        decoded_actions = [
+            self._decode_action(actions[idx]) if idx < len(actions) else Action.WAIT
+            for idx in range(self.num_agents)
+        ]
+
         self.last_conflicts = []
-        self._record_intent_conflicts(actions)
+        self._record_intent_conflicts([action.value for action in decoded_actions])
 
         trajectories = None
         if record_trajectories:
             trajectories = [[(robot.x, robot.y)] for robot in self.robots]
 
-        for robot, action_idx in zip(self.robots, actions):
-            action = self._decode_action(action_idx)
-            reward = -0.01
-            old_distance = self.get_dist_to_target(robot)
+        old_distances = [self.get_dist_to_target(robot) for robot in self.robots]
+        rewards = [-0.01 for _ in self.robots]
 
+        forward_intents: Dict[int, Tuple[GridPos, GridPos]] = {}
+        blocked_forward: set = set()
+        blocked_forward_early: set = set()
+
+        for idx, (robot, action) in enumerate(zip(self.robots, decoded_actions)):
             if action == Action.FORWARD:
-                moved, bump = robot.forward(self)
-                if bump:
-                    reward -= 0.2
-                    collisions += 1
-                elif moved:
-                    reward += 0.01
-            elif action == Action.TURN_LEFT:
+                nx = robot.x + [0, 1, 0, -1][robot.dir.value]
+                ny = robot.y + [-1, 0, 1, 0][robot.dir.value]
+
+                if not (0 <= nx < self.grid_w and 0 <= ny < self.grid_h):
+                    blocked_forward_early.add(idx)
+                    continue
+
+                if robot._occupied_by_shelf(nx, ny, self):
+                    blocked_forward_early.add(idx)
+                    continue
+
+                forward_intents[idx] = ((robot.x, robot.y), (nx, ny))
+                continue
+
+            if action == Action.TURN_LEFT:
                 robot.turn_left()
-                reward -= 0.002
+                rewards[idx] -= 0.002
             elif action == Action.TURN_RIGHT:
                 robot.turn_right()
-                reward -= 0.002
+                rewards[idx] -= 0.002
             elif action == Action.PICK_DROP:
                 extra_reward, event = robot.pick_or_drop(self)
-                reward += extra_reward
+                rewards[idx] += extra_reward
                 if event == "DELIVERED":
                     delivered_count += 1
             elif action == Action.WAIT:
-                reward -= 0.003
+                rewards[idx] -= 0.003
 
+        for idx in blocked_forward_early:
+            rewards[idx] -= 0.2
+            collisions += 1
+
+        static_positions = {
+            (robot.x, robot.y)
+            for idx, robot in enumerate(self.robots)
+            if idx not in forward_intents
+        }
+
+        for idx, (_, target) in forward_intents.items():
+            if target in static_positions:
+                blocked_forward.add(idx)
+
+        target_counts: Dict[GridPos, int] = {}
+        for idx, (_, target) in forward_intents.items():
+            if idx in blocked_forward:
+                continue
+            target_counts[target] = target_counts.get(target, 0) + 1
+
+        for idx, (_, target) in forward_intents.items():
+            if target_counts.get(target, 0) > 1:
+                blocked_forward.add(idx)
+
+        forward_items = [(idx, move[0], move[1]) for idx, move in forward_intents.items() if idx not in blocked_forward]
+        for i in range(len(forward_items)):
+            idx_a, from_a, to_a = forward_items[i]
+            for j in range(i + 1, len(forward_items)):
+                idx_b, from_b, to_b = forward_items[j]
+                if from_a == to_b and to_a == from_b:
+                    blocked_forward.add(idx_a)
+                    blocked_forward.add(idx_b)
+
+        for idx, (_, target) in forward_intents.items():
+            if idx in blocked_forward:
+                rewards[idx] -= 0.2
+                collisions += 1
+                continue
+
+            robot = self.robots[idx]
+            robot.x, robot.y = target
+            if robot.carrying is not None:
+                robot.carrying["x"] = robot.x
+                robot.carrying["y"] = robot.y
+            rewards[idx] += 0.01
+
+        for idx, robot in enumerate(self.robots):
             new_distance = self.get_dist_to_target(robot)
+            old_distance = old_distances[idx]
             if old_distance is not None and new_distance is not None:
                 distance_improvement = old_distance - new_distance
                 if distance_improvement > 0:
-                    reward += distance_improvement * 0.12
+                    rewards[idx] += distance_improvement * 0.12
                 elif distance_improvement < 0:
-                    reward += distance_improvement * 0.04
+                    rewards[idx] += distance_improvement * 0.04
 
             if robot.carrying is not None and not robot.carrying["requested"]:
-                reward -= 0.05
-
-            rewards.append(reward)
+                rewards[idx] -= 0.05
 
         if delivered_count > 0:
             team_bonus = 2.0 * delivered_count
@@ -207,93 +297,288 @@ class WarehouseEnv:
         if not self.render_enabled:
             return
 
-        cell_size = cfg.CELL_SIZE
-        self.screen.fill(cfg.WHITE)
+        cell_size = getattr(self, 'cell_size', cfg.CELL_SIZE)
+        # Pure white background for crisp minimal look
+        self.screen.fill(cfg.BG_PURE)
 
-        # Draw grid
+        # Draw ultra-subtle grid with anti-aliased lines
         for x in range(self.grid_w + 1):
-            pygame.draw.line(
+            pygame.draw.aaline(
                 self.screen,
-                cfg.GRAY,
+                cfg.GRID_SUBTLE,
                 (x * cell_size, 0),
                 (x * cell_size, self.grid_h * cell_size),
-                1,
             )
         for y in range(self.grid_h + 1):
-            pygame.draw.line(
+            pygame.draw.aaline(
                 self.screen,
-                cfg.GRAY,
+                cfg.GRID_SUBTLE,
                 (0, y * cell_size),
                 (self.grid_w * cell_size, y * cell_size),
-                1,
             )
 
-        # Draw goal cells
-        for gx, gy in self.GOALS:
-            rect = pygame.Rect(gx * cell_size + 4, gy * cell_size + 4, cell_size - 8, cell_size - 8)
-            pygame.draw.rect(self.screen, cfg.GOAL_COLOR, rect)
-            text = self.font.render("G", True, cfg.WHITE)
-            self.screen.blit(text, text.get_rect(center=rect.center))
+        # Get robot positions to avoid drawing shelves under them
+        robot_positions = {(robot.x, robot.y) for robot in self.robots}
 
-        # Draw shelves
+        # Draw goal cells - crisp solid design with subtle shadow
+        for gx, gy in self.GOALS:
+            goal_x = gx * cell_size
+            goal_y = gy * cell_size
+            margin = 2
+            size = cell_size - margin * 2
+            
+            # Subtle shadow offset
+            shadow_offset = 1
+            shadow_rect = pygame.Rect(
+                goal_x + margin + shadow_offset,
+                goal_y + margin + shadow_offset,
+                size,
+                size,
+            )
+            pygame.draw.rect(self.screen, cfg.GOAL_SHADOW, shadow_rect)
+            
+            # Main goal rectangle
+            goal_rect = pygame.Rect(goal_x + margin, goal_y + margin, size, size)
+            pygame.draw.rect(self.screen, cfg.GOAL_PRIMARY, goal_rect)
+            
+            # Crisp border
+            pygame.draw.rect(self.screen, cfg.GOAL_SHADOW, goal_rect, 2)
+            
+            # Clean text
+            text = self.font_small.render("GOAL", True, cfg.TEXT_ON_DARK)
+            text_rect = text.get_rect(center=goal_rect.center)
+            self.screen.blit(text, text_rect)
+
+        # Draw shelves - solid crisp boxes
         for shelf in self.shelves:
             if shelf["carried"]:
                 continue
-            color = cfg.GREEN if shelf["requested"] else cfg.TEAL
-            rect = pygame.Rect(
-                shelf["x"] * cell_size + 8,
-                shelf["y"] * cell_size + 8,
-                cell_size - 16,
-                cell_size - 16,
+            
+            shelf_pos = (shelf["x"], shelf["y"])
+            if shelf_pos in robot_positions:
+                continue
+            
+            shelf_x = shelf["x"] * cell_size
+            shelf_y = shelf["y"] * cell_size
+            margin = 3
+            size = cell_size - margin * 2
+            
+            # Choose colors
+            if shelf["requested"]:
+                shelf_color = cfg.SHELF_ACTIVE
+                shadow_color = cfg.SHELF_SHADOW
+                text_color = cfg.TEXT_ON_DARK
+            else:
+                shelf_color = cfg.SHELF_IDLE
+                shadow_color = (150, 150, 160)
+                text_color = cfg.TEXT_PRIMARY
+            
+            # Subtle shadow
+            shadow_offset = 1
+            shadow_rect = pygame.Rect(
+                shelf_x + margin + shadow_offset,
+                shelf_y + margin + shadow_offset,
+                size,
+                size,
             )
-            pygame.draw.rect(self.screen, color, rect)
-            text = self.font.render(str(shelf["id"] % 100), True, cfg.BLACK)
-            self.screen.blit(text, text.get_rect(center=rect.center))
+            pygame.draw.rect(self.screen, shadow_color, shadow_rect)
+            
+            # Main shelf rectangle
+            shelf_rect = pygame.Rect(shelf_x + margin, shelf_y + margin, size, size)
+            pygame.draw.rect(self.screen, shelf_color, shelf_rect)
+            
+            # Crisp border
+            border_color = shadow_color if shelf["requested"] else (160, 160, 170)
+            pygame.draw.rect(self.screen, border_color, shelf_rect, 2)
+            
+            # Shelf ID - crisp text
+            shelf_id_text = str(shelf["id"] % 100)
+            text = self.font_tiny.render(shelf_id_text, True, text_color)
+            text_rect = text.get_rect(center=shelf_rect.center)
+            self.screen.blit(text, text_rect)
 
         # Draw robot symmetry orbits
         try:
             from symmetry_reduction import detect_role_orbits
-
             orbits = detect_role_orbits(self.robots)
         except Exception:
             orbits = [[idx] for idx in range(len(self.robots))]
 
+        # Refined orbit colors
         orbit_colors = [
-            (80, 120, 200),
-            (200, 120, 80),
-            (120, 200, 120),
-            (200, 80, 160),
-            (160, 160, 80),
-            (80, 180, 180),
+            (100, 150, 220),
+            (220, 150, 100),
+            (150, 220, 150),
+            (220, 100, 180),
+            (200, 200, 120),
+            (100, 200, 200),
         ]
         orbit_by_agent = {}
         for orbit_idx, orbit in enumerate(orbits):
             for agent_idx in orbit:
                 orbit_by_agent[agent_idx] = orbit_idx
 
-        # Draw robots
+        # Draw robots - advanced crisp design with anti-aliasing
         for idx, robot in enumerate(self.robots):
             center_x = robot.x * cell_size + cell_size // 2
             center_y = robot.y * cell_size + cell_size // 2
+            radius = cell_size // 3 - 2
 
-            if robot.carrying and robot.carrying["requested"]:
-                pygame.draw.circle(self.screen, cfg.GOLD, (center_x, center_y), cell_size // 2 - 4, 3)
+            # Robot body color
+            if robot.carrying:
+                body_color = cfg.ROBOT_CARRYING
+                shadow_color = (200, 100, 40)
+            else:
+                body_color = cfg.ROBOT_PRIMARY
+                shadow_color = cfg.ROBOT_SHADOW
 
-            body_color = cfg.RED if robot.carrying else cfg.ORANGE
-            pygame.draw.circle(self.screen, body_color, (center_x, center_y), cell_size // 3)
+            # Draw shadow circle (subtle depth)
+            shadow_offset = 1
+            pygame.gfxdraw.filled_circle(
+                self.screen,
+                center_x + shadow_offset,
+                center_y + shadow_offset,
+                radius,
+                shadow_color,
+            )
 
+            # Main robot body - anti-aliased circle
+            pygame.gfxdraw.filled_circle(
+                self.screen,
+                center_x,
+                center_y,
+                radius,
+                body_color,
+            )
+
+            # Crisp border
+            pygame.gfxdraw.aacircle(
+                self.screen,
+                center_x,
+                center_y,
+                radius,
+                shadow_color,
+            )
+
+            # Carrying indicator - gold accent
+            if robot.carrying and robot.carrying.get("requested"):
+                indicator_y = center_y - radius - 6
+                # Shadow
+                pygame.gfxdraw.filled_circle(
+                    self.screen,
+                    center_x + 1,
+                    indicator_y + 1,
+                    5,
+                    (200, 150, 30),
+                )
+                # Main circle
+                pygame.gfxdraw.filled_circle(
+                    self.screen,
+                    center_x,
+                    indicator_y,
+                    5,
+                    cfg.ACCENT_GOLD,
+                )
+                pygame.gfxdraw.aacircle(
+                    self.screen,
+                    center_x,
+                    indicator_y,
+                    5,
+                    (220, 170, 40),
+                )
+
+            # Direction arrow - crisp anti-aliased design
+            arrow_length = radius - 1
+            arrow_head_size = 5
+            arrow_shaft_width = 2
+            
+            if robot.dir.value == 0:  # UP
+                # Arrow shaft
+                shaft_rect = pygame.Rect(
+                    center_x - arrow_shaft_width // 2,
+                    center_y - arrow_length,
+                    arrow_shaft_width,
+                    arrow_length - arrow_head_size,
+                )
+                pygame.draw.rect(self.screen, cfg.TEXT_ON_DARK, shaft_rect)
+                # Arrowhead
+                arrow_points = [
+                    (center_x, center_y - arrow_length),
+                    (center_x - arrow_head_size, center_y - arrow_length + arrow_head_size),
+                    (center_x + arrow_head_size, center_y - arrow_length + arrow_head_size),
+                ]
+            elif robot.dir.value == 1:  # RIGHT
+                shaft_rect = pygame.Rect(
+                    center_x,
+                    center_y - arrow_shaft_width // 2,
+                    arrow_length - arrow_head_size,
+                    arrow_shaft_width,
+                )
+                pygame.draw.rect(self.screen, cfg.TEXT_ON_DARK, shaft_rect)
+                arrow_points = [
+                    (center_x + arrow_length, center_y),
+                    (center_x + arrow_length - arrow_head_size, center_y - arrow_head_size),
+                    (center_x + arrow_length - arrow_head_size, center_y + arrow_head_size),
+                ]
+            elif robot.dir.value == 2:  # DOWN
+                shaft_rect = pygame.Rect(
+                    center_x - arrow_shaft_width // 2,
+                    center_y,
+                    arrow_shaft_width,
+                    arrow_length - arrow_head_size,
+                )
+                pygame.draw.rect(self.screen, cfg.TEXT_ON_DARK, shaft_rect)
+                arrow_points = [
+                    (center_x, center_y + arrow_length),
+                    (center_x - arrow_head_size, center_y + arrow_length - arrow_head_size),
+                    (center_x + arrow_head_size, center_y + arrow_length - arrow_head_size),
+                ]
+            else:  # LEFT
+                shaft_rect = pygame.Rect(
+                    center_x - arrow_length + arrow_head_size,
+                    center_y - arrow_shaft_width // 2,
+                    arrow_length - arrow_head_size,
+                    arrow_shaft_width,
+                )
+                pygame.draw.rect(self.screen, cfg.TEXT_ON_DARK, shaft_rect)
+                arrow_points = [
+                    (center_x - arrow_length, center_y),
+                    (center_x - arrow_length + arrow_head_size, center_y - arrow_head_size),
+                    (center_x - arrow_length + arrow_head_size, center_y + arrow_head_size),
+                ]
+            
+            # Draw arrowhead with anti-aliasing
+            pygame.gfxdraw.filled_trigon(
+                self.screen,
+                int(arrow_points[0][0]),
+                int(arrow_points[0][1]),
+                int(arrow_points[1][0]),
+                int(arrow_points[1][1]),
+                int(arrow_points[2][0]),
+                int(arrow_points[2][1]),
+                cfg.TEXT_ON_DARK,
+            )
+            pygame.gfxdraw.aatrigon(
+                self.screen,
+                int(arrow_points[0][0]),
+                int(arrow_points[0][1]),
+                int(arrow_points[1][0]),
+                int(arrow_points[1][1]),
+                int(arrow_points[2][0]),
+                int(arrow_points[2][1]),
+                cfg.TEXT_ON_DARK,
+            )
+
+            # Orbit indicator - subtle corner marker
             orbit_idx = orbit_by_agent.get(idx, 0)
             orbit_color = orbit_colors[orbit_idx % len(orbit_colors)]
-            pygame.draw.circle(self.screen, orbit_color, (center_x, center_y), cell_size // 3 + 2, 2)
+            corner_size = 4
+            corner_x = center_x + radius - corner_size - 1
+            corner_y = center_y - radius + 1
+            corner_rect = pygame.Rect(corner_x, corner_y, corner_size, corner_size)
+            pygame.draw.rect(self.screen, orbit_color, corner_rect)
 
-            look_dx = [0, 0.4, 0, -0.4]
-            look_dy = [-0.4, 0, 0.4, 0]
-            end_x = center_x + look_dx[robot.dir.value] * cell_size * 0.45
-            end_y = center_y + look_dy[robot.dir.value] * cell_size * 0.45
-            pygame.draw.line(self.screen, cfg.BLACK, (center_x, center_y), (end_x, end_y), 4)
-
-            label = self.font.render(str(idx + 1), True, cfg.WHITE)
-            self.screen.blit(label, label.get_rect(center=(center_x, center_y)))
+            # Robot ID removed - clean minimal design without numbers
 
         pygame.display.flip()
         if self.render_fps > 0:
@@ -350,7 +635,8 @@ class WarehouseEnv:
         dx = [0, 1, 0, -1]
         dy = [-1, 0, 1, 0]
 
-        for robot, action_idx in zip(self.robots, actions):
+        for idx, robot in enumerate(self.robots):
+            action_idx = actions[idx] if idx < len(actions) else Action.WAIT.value
             action = self._decode_action(action_idx)
             if action != Action.FORWARD:
                 continue

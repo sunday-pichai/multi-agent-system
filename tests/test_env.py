@@ -1,5 +1,6 @@
 """Test environment functionality."""
 from env import WarehouseEnv
+from agent import Action
 from config import NUM_AGENTS, NUM_SHELVES, GRID_W, GRID_H
 
 
@@ -96,6 +97,80 @@ def test_env_collision_detection():
             assert collisions > 0, "Should detect collision"
 
 
+def test_env_swap_collision_detection():
+    """Test head-on swap intents are blocked simultaneously."""
+    env = WarehouseEnv(render=False)
+    env.reset()
+
+    if len(env.robots) >= 2:
+        env.robots[0].x = 5
+        env.robots[0].y = 5
+        env.robots[0].dir = env.robots[0].dir.__class__(1)  # RIGHT
+        env.robots[1].x = 6
+        env.robots[1].y = 5
+        env.robots[1].dir = env.robots[1].dir.__class__(3)  # LEFT
+
+        actions = [0] * env.num_agents  # both FORWARD
+        _, _, _, collisions, _ = env.step(actions)
+
+        assert collisions >= 2, "Both robots should be blocked in a swap conflict"
+        assert (env.robots[0].x, env.robots[0].y) == (5, 5), "Robot 0 should not move"
+        assert (env.robots[1].x, env.robots[1].y) == (6, 5), "Robot 1 should not move"
+
+
+def test_env_short_action_list_defaults_to_wait():
+    """Test missing actions default to WAIT rather than skipping robots."""
+    env = WarehouseEnv(render=False)
+    env.reset()
+
+    # Provide fewer actions than agents; should still return full outputs without crashing
+    short_actions = [0]  # only first robot gets FORWARD
+    next_states, rewards, done, collisions, _ = env.step(short_actions)
+
+    assert len(next_states) == env.num_agents, "Should produce state for every robot"
+    assert len(rewards) == env.num_agents, "Should produce reward for every robot"
+    assert isinstance(done, bool), "Done should be boolean"
+    assert isinstance(collisions, int), "Collisions should be integer"
+
+
+def test_env_blocks_unassigned_shelf_entry():
+    """Robot should not move onto a requested shelf unless explicitly assigned."""
+    env = WarehouseEnv(render=False)
+    env.reset()
+
+    robot = env.robots[0]
+    shelf = env.shelves[0]
+
+    # Position robot adjacent so FORWARD goes into shelf cell
+    if shelf['x'] > 0:
+        robot.x = shelf['x'] - 1
+        robot.y = shelf['y']
+        robot.dir = robot.dir.__class__(1)  # RIGHT
+    elif shelf['x'] < env.grid_w - 1:
+        robot.x = shelf['x'] + 1
+        robot.y = shelf['y']
+        robot.dir = robot.dir.__class__(3)  # LEFT
+    elif shelf['y'] > 0:
+        robot.x = shelf['x']
+        robot.y = shelf['y'] - 1
+        robot.dir = robot.dir.__class__(2)  # DOWN
+    else:
+        robot.x = shelf['x']
+        robot.y = shelf['y'] + 1
+        robot.dir = robot.dir.__class__(0)  # UP
+
+    # Ensure target cell is shelf and no explicit planner permission exists
+    env._planner_allowed_shelf_entries = {}
+
+    actions = [Action.WAIT.value] * env.num_agents
+    actions[0] = Action.FORWARD.value
+
+    _, _, _, collisions, _ = env.step(actions)
+
+    assert collisions >= 1, "Entering an unassigned shelf cell should be blocked"
+    assert (robot.x, robot.y) != (shelf['x'], shelf['y']), "Robot must not move onto unassigned shelf"
+
+
 def test_env_goal_delivery():
     """Test goal delivery mechanism."""
     env = WarehouseEnv(render=False)
@@ -141,6 +216,15 @@ if __name__ == '__main__':
     
     test_env_collision_detection()
     print("✓ Collision detection test passed")
+
+    test_env_swap_collision_detection()
+    print("✓ Swap collision detection test passed")
+
+    test_env_short_action_list_defaults_to_wait()
+    print("✓ Short action list handling test passed")
+
+    test_env_blocks_unassigned_shelf_entry()
+    print("✓ Unassigned shelf blocking test passed")
     
     test_env_goal_delivery()
     print("✓ Goal delivery test passed")

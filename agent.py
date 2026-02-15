@@ -43,7 +43,7 @@ class Robot:
 
         Returns:
         - moved: True when position changed
-        - bump: True when blocked by wall or another robot
+        - bump: True when blocked by wall, another robot, or a shelf
         """
         nx, ny = self._next_forward_cell()
 
@@ -51,6 +51,10 @@ class Robot:
             return False, True
 
         if self._occupied_by_robot(nx, ny, env):
+            return False, True
+
+        # Check for shelf collision - only block if shelf is not being carried and not about to be picked
+        if self._occupied_by_shelf(nx, ny, env):
             return False, True
 
         self.x = nx
@@ -86,6 +90,36 @@ class Robot:
             if other is self:
                 continue
             if other.x == x and other.y == y:
+                return True
+        return False
+
+    def _occupied_by_shelf(self, x: int, y: int, env: Any) -> bool:
+        """Check if position is occupied by a shelf that should block movement.
+        Rules:
+        - Carried shelves don't block (they move with the robot that's carrying them)
+        - If robot is already carrying, all shelves block
+        - If robot is not carrying, only its planner-assigned shelf is enterable
+        - Non-requested shelves always block
+        """
+        allowed_entries = getattr(env, "_planner_allowed_shelf_entries", {})
+        allowed_pos = allowed_entries.get(self.id)
+
+        for shelf in env.shelves:
+            if shelf["x"] == x and shelf["y"] == y:
+                # If shelf is being carried by any robot, it doesn't block
+                # (the shelf moves with the robot carrying it)
+                if shelf.get("carried", False):
+                    continue
+                
+                # If this robot is already carrying a shelf, avoid all other shelves
+                if self.carrying is not None:
+                    return True
+                
+                # If this shelf is planner-approved for this robot, allow entry
+                if shelf.get("requested", False) and allowed_pos == (x, y):
+                    continue
+                
+                # Non-requested shelves block movement
                 return True
         return False
 
