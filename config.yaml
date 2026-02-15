@@ -7,7 +7,7 @@ grid:
   cell_size: 30
 
 agents:
-  num_agents: 6
+  num_agents: 2
   num_shelves: 8
   goals:
     - [7, 14]
@@ -20,6 +20,7 @@ planning:
 
 render:
   fps: 2
+  astar_visualization: true
 
 verification:
   min_separation: 1

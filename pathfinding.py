@@ -174,6 +174,7 @@ def astar_time(
     max_time: int,
     blocked_t1: Set[GridPos],
     blocked_static: Optional[Set[GridPos]] = None,
+    visual: Optional[Dict[str, object]] = None,
     constraints: Optional[Iterable[ConstraintTable]] = None,
     max_expansions: int = 6000,
 ) -> Optional[List[Action]]:
@@ -192,6 +193,15 @@ def astar_time(
 
     g_score: Dict[NodeKey, int] = {start: 0}
     parent: Dict[NodeKey, Tuple[NodeKey, Action]] = {}
+    expanded_positions: Set[GridPos] = set()
+
+    def _current_frontier_positions() -> List[GridPos]:
+        """Return non-stale frontier positions currently in the open set."""
+        frontier: Set[GridPos] = set()
+        for _, g_val, _, key in open_heap:
+            if g_val == g_score.get(key, float('inf')):
+                frontier.add((key.x, key.y))
+        return list(frontier)
 
     action_order = [Action.FORWARD, Action.TURN_LEFT, Action.TURN_RIGHT, Action.WAIT]  # Prefer forward
 
@@ -207,16 +217,33 @@ def astar_time(
 
         cur_pos = (current.x, current.y)
         cur_dir = Direction(current.dir_value)
+        expanded_positions.add(cur_pos)
 
         if cur_pos == goal:
             # Reconstruct path
             path: List[Action] = []
+            node_positions: List[GridPos] = [cur_pos]
             node = current
             while node in parent:
                 prev, action = parent[node]
                 path.append(action)
                 node = prev
+                node_positions.append((node.x, node.y))
             path.reverse()
+            node_positions.reverse()
+            movement_positions: List[GridPos] = []
+            for pos in node_positions:
+                if not movement_positions or movement_positions[-1] != pos:
+                    movement_positions.append(pos)
+            if visual is not None:
+                visual["found"] = True
+                visual["expanded"] = list(expanded_positions)
+                visual["frontier"] = _current_frontier_positions()
+                visual["path_positions"] = node_positions
+                visual["movement_path_positions"] = movement_positions
+                visual["expansions"] = expansions
+                visual["goal"] = goal
+                visual["start"] = start_pos
             return path
 
         if current.t >= max_time:
@@ -268,6 +295,15 @@ def astar_time(
             heapq.heappush(open_heap, (f, next_g, sequence, next_key))
             parent[next_key] = (current, action)
 
+    if visual is not None:
+        visual["found"] = False
+        visual["expanded"] = list(expanded_positions)
+        visual["frontier"] = _current_frontier_positions()
+        visual["path_positions"] = []
+        visual["movement_path_positions"] = []
+        visual["expansions"] = expansions
+        visual["goal"] = goal
+        visual["start"] = start_pos
     return None
 
 
@@ -442,6 +478,16 @@ class CooperativePlanner:
         occupied_now = {(robot.x, robot.y) for robot in env.robots}
         actions_by_id: Dict[int, int] = {}
         allowed_shelf_entries: Dict[int, GridPos] = {}
+        planner_debug_by_agent: Dict[int, Dict[str, object]] = {}
+        selected_agent_id = getattr(env, "selected_agent_id", -1)
+        selected_astar_visual: Dict[str, object] = {
+            "agent_id": selected_agent_id,
+            "found": False,
+            "expanded": [],
+            "frontier": [],
+            "path_positions": [],
+            "mode": "none",
+        }
         robots_by_id = sorted(env.robots, key=lambda r: r.id)
         if robots_by_id:
             shift = self.priority_offset % len(robots_by_id)
@@ -460,14 +506,49 @@ class CooperativePlanner:
         # Plan in rotating priority order to reduce deadlocks/starvation
         for robot in planning_order:
             planned_path = []  # Ensure planned_path is always defined
+            debug: Dict[str, object] = {
+                "priority": priority_rank.get(robot.id, 0),
+                "assigned_shelf_id": self.assignment_manager.agent_to_shelf.get(robot.id),
+                "idle_steps": self.idle_tracker.idle_steps.get(robot.id, 0),
+                "target": None,
+                "mode": "unknown",
+                "astar_found": False,
+                "path_len": 0,
+                "path_preview": [],
+            }
             if self._should_pick_drop(robot, env):
                 chosen_action = Action.PICK_DROP
+                debug["mode"] = "pick_drop"
             else:
                 target = self.assignment_manager.get_target_for_robot(robot, env)
+                blocked_t1 = occupied_now - {(robot.x, robot.y)}
+                blocked_static = self._blocked_shelf_positions(robot, target, env)
+                visual_capture = robot.id == selected_agent_id
+                debug["target"] = target
+                debug["blocked_t1_count"] = len(blocked_t1)
+                debug["blocked_static_count"] = len(blocked_static)
                 if robot.carrying is None and target is not None and target in shelf_positions:
                     allowed_shelf_entries[robot.id] = target
                 if target is None:
-                    chosen_action = Action.WAIT
+                    if robot.carrying is None and (robot.x, robot.y) in env.GOALS:
+                        clear_target = self._nearest_requested_shelf(robot, env)
+                        chosen_action = self._best_immediate_action(
+                            robot,
+                            clear_target,
+                            reservations,
+                            blocked_t1 | blocked_static,
+                        )
+                        debug["mode"] = "goal_clear"
+                        debug["target"] = clear_target
+                        if visual_capture:
+                            selected_astar_visual["mode"] = "goal_clear_no_astar"
+                    else:
+                        chosen_action = Action.WAIT
+                        debug["mode"] = "no_target_wait"
+                        if visual_capture:
+                            selected_astar_visual["mode"] = "no_target_wait"
+                    debug["chosen_action_pre_sanitize"] = chosen_action.name
+                    planner_debug_by_agent[robot.id] = debug
                     actions_by_id[robot.id] = chosen_action.value
                     positions = simulate_positions(
                         (robot.x, robot.y),
@@ -480,9 +561,6 @@ class CooperativePlanner:
                     reservations.reserve_positions(positions)
                     continue
 
-                blocked_t1 = occupied_now - {(robot.x, robot.y)}
-                blocked_static = self._blocked_shelf_positions(robot, target, env)
-
                 path = astar_time(
                     (robot.x, robot.y),
                     robot.dir,
@@ -493,15 +571,23 @@ class CooperativePlanner:
                     self.plan_horizon,
                     blocked_t1,
                     blocked_static=blocked_static,
+                    visual=selected_astar_visual if visual_capture else None,
                     constraints=[self.constraints],
                     max_expansions=self.astar_max_nodes,
                 )
                 planned_path = path if path is not None else []
+                debug["astar_found"] = bool(planned_path)
+                debug["path_len"] = len(planned_path)
+                debug["path_preview"] = [action.name for action in planned_path[:6]]
 
                 if planned_path:
                     chosen_action = planned_path[0]
+                    debug["mode"] = "astar_path"
                 elif target == (robot.x, robot.y):
                     chosen_action = Action.WAIT
+                    debug["mode"] = "target_reached_wait"
+                    if visual_capture:
+                        selected_astar_visual["mode"] = "target_reached_wait"
                 else:
                     chosen_action = self._best_immediate_action(
                         robot,
@@ -509,7 +595,12 @@ class CooperativePlanner:
                         reservations,
                         blocked_t1 | blocked_static,
                     )
+                    debug["mode"] = "immediate_fallback"
+                    if visual_capture and not selected_astar_visual.get("found", False):
+                        selected_astar_visual["mode"] = "immediate_fallback"
 
+            debug["chosen_action_pre_sanitize"] = chosen_action.name
+            planner_debug_by_agent[robot.id] = debug
             actions_by_id[robot.id] = chosen_action.value
 
             # Reserve the planned trajectory (pad with WAIT)
@@ -526,7 +617,23 @@ class CooperativePlanner:
 
         env._planner_allowed_shelf_entries = allowed_shelf_entries
         actions = [actions_by_id[robot.id] for robot in env.robots]
-        return self._sanitize_immediate_conflicts(env, actions, priority_rank)
+        sanitized = self._sanitize_immediate_conflicts(env, actions, priority_rank)
+        env._planner_last_actions = list(sanitized)
+        selected_astar_visual["selected_action"] = (
+            Action(sanitized[selected_agent_id]).name
+            if 0 <= selected_agent_id < len(sanitized)
+            else "WAIT"
+        )
+        env._selected_astar_visual = selected_astar_visual
+        for robot, action in zip(env.robots, sanitized):
+            debug = planner_debug_by_agent.get(robot.id)
+            if debug is None:
+                continue
+            debug["chosen_action"] = Action(action).name
+            pre = debug.get("chosen_action_pre_sanitize")
+            debug["sanitized"] = pre != debug["chosen_action"]
+        env._planner_debug_by_agent = planner_debug_by_agent
+        return sanitized
 
     def _blocked_shelf_positions(self, robot: Robot, target: Optional[GridPos], env) -> Set[GridPos]:
         """Return shelf cells that should be treated as blocked for this robot."""
@@ -539,6 +646,18 @@ class CooperativePlanner:
                 continue
             blocked.add(shelf_pos)
         return blocked
+
+    @staticmethod
+    def _nearest_requested_shelf(robot: Robot, env) -> Optional[GridPos]:
+        """Find nearest requested shelf position for goal-clearing motion guidance."""
+        requested = [
+            (shelf["x"], shelf["y"])
+            for shelf in env.shelves
+            if shelf["requested"] and not shelf["carried"]
+        ]
+        if not requested:
+            return None
+        return min(requested, key=lambda pos: manhattan((robot.x, robot.y), pos))
 
     def _sanitize_immediate_conflicts(self, env, actions: List[int], priority_rank: Dict[int, int]) -> List[int]:
         """

@@ -26,6 +26,7 @@ def run_interactive(args: argparse.Namespace) -> None:
     try:
         while True:
             for event in pygame.event.get():
+                env.handle_event(event)
                 if event.type == pygame.QUIT:
                     raise KeyboardInterrupt
                 if event.type == pygame.KEYDOWN and event.key == pygame.K_q:
@@ -53,6 +54,14 @@ def run_simulation(args: argparse.Namespace) -> None:
         steps = 0
 
         while not done and steps < args.steps_per_episode:
+            if args.render:
+                for event in pygame.event.get():
+                    env.handle_event(event)
+                    if event.type == pygame.QUIT:
+                        return
+                    if event.type == pygame.KEYDOWN and event.key == pygame.K_q:
+                        return
+
             actions = planner.compute_actions(env)
             _, _, done, episode_collisions, _ = env.step(actions)
             total_collisions += episode_collisions
