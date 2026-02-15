@@ -96,7 +96,7 @@ def test_pick_rewards():
         # Allow for some variance due to distance rewards/penalties
         assert reward > 3.0, f"Expected pick requested reward ~5.0 (with adjustments), got {reward}"
     
-    # Test picking non-requested shelf
+    # Testt picking non-requested shelf
     env.reset()
     robot = env.robots[0]
     non_requested_shelf = next((s for s in env.shelves if not s['requested']), None)
