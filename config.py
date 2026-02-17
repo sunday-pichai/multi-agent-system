@@ -54,6 +54,9 @@ ACTION_SIZE: int = 5
 PLAN_HORIZON: int = 30
 ASTAR_MAX_NODES: int = 3500
 IDLE_LIMIT: int = 4
+RESERVATION_WINDOW: int = 8
+UNPLANNED_HOLD_STEPS: int = 2
+ESCAPE_IDLE_STEPS: int = 6
 RENDER_FPS: int = 2
 
 
@@ -76,7 +79,8 @@ STATE_SIZE: int = state_size()
 def load_from_yaml(path: Optional[str] = None) -> None:
     """Load optional overrides from YAML file into module-level settings."""
     global GRID_W, GRID_H, CELL_SIZE, NUM_AGENTS, NUM_SHELVES, GOALS
-    global PLAN_HORIZON, ASTAR_MAX_NODES, IDLE_LIMIT, RENDER_FPS
+    global PLAN_HORIZON, ASTAR_MAX_NODES, IDLE_LIMIT
+    global RESERVATION_WINDOW, UNPLANNED_HOLD_STEPS, ESCAPE_IDLE_STEPS, RENDER_FPS
     global MIN_SEPARATION, VERIFY_HORIZON, VERIFY_TRIALS
     global REFINE_ITERATIONS, REFINE_MAX_CONSTRAINTS, STATE_SIZE
 
@@ -119,6 +123,12 @@ def load_from_yaml(path: Optional[str] = None) -> None:
         ASTAR_MAX_NODES = int(planning["astar_max_nodes"])
     if "idle_limit" in planning:
         IDLE_LIMIT = int(planning["idle_limit"])
+    if "reservation_window" in planning:
+        RESERVATION_WINDOW = int(planning["reservation_window"])
+    if "unplanned_hold_steps" in planning:
+        UNPLANNED_HOLD_STEPS = int(planning["unplanned_hold_steps"])
+    if "escape_idle_steps" in planning:
+        ESCAPE_IDLE_STEPS = int(planning["escape_idle_steps"])
 
     render = data.get("render", {})
     if "fps" in render:

@@ -8,7 +8,7 @@ grid:
 
 agents:
   num_agents: 6
-  num_shelves: 15
+  num_shelves: 6
   goals:
     - [7, 14]
     - [8, 14]
@@ -17,9 +17,12 @@ planning:
   horizon: 30
   astar_max_nodes: 3500
   idle_limit: 4
+  reservation_window: 8
+  unplanned_hold_steps: 2
+  escape_idle_steps: 6
 
 render:
-  fps: 2
+  fps: 3
 
 verification:
   min_separation: 1

@@ -46,13 +46,14 @@ Main modules:
 `CooperativePlanner` in `pathfinding.py` uses a prioritized multi-agent strategy:
 
 - Agents are assigned to requested shelves (nearest matching).
-- Agents are planned sequentially by ID.
-- Each planned trajectory reserves vertices and edges in a time-indexed reservation table.
+- Agents are planned sequentially with rotating priority (fairness across timesteps).
+- Each planned trajectory reserves vertices and edges in a short time window (WHCA*-style).
 - A* search runs on `(x, y, dir, t)` and rejects moves violating:
   - grid bounds
+  - conservative early-time occupancy for not-yet-planned agents
   - reservation conflicts
   - refinement constraints
-- If a full plan is not found in the expansion/time budget, the planner selects a deterministic immediate safe fallback action.
+- Stalled agents can use deterministic one-step escape actions to break deadlocks.
 
 This keeps planner behavior predictable while still handling congestion and contention.
 

@@ -151,13 +151,6 @@ if (document.readyState === "loading") {
   initNavigation();
 }
 
-
-window.addEventListener("resize", () => {
-  if (window.innerWidth > 1024 && sidebar?.classList.contains("is-open")) {
-    setSidebarOpen(false);
-  }
-});
-
 // ==================== Sidebar Toggle (Mobile) ====================
 // Removed - no longer using sidebar
 
@@ -216,14 +209,15 @@ function createHiResCanvas(canvas, minHeight = CANVAS_MIN_HEIGHT) {
 
 const steps = {
   plan: {
-    title: "Plan (Prioritized Time-Aware A*)",
+    title: "Plan (Cooperative Space-Time A*)",
     text:
-      "Agents plan in a time-expanded grid. Earlier agents reserve cells/edges, and later agents route around those reservations with deterministic fallback when needed.",
-    code: `Prioritized planner:
+      "Agents plan in a time-expanded grid. Earlier agents reserve cells/edges, later agents route around those reservations, and stalled agents use deterministic escape actions.",
+    code: `Cooperative planner:
+- global assignment (Hungarian)
 - time-expanded grid
-- reservation table
-- edge/vertex conflict checks
-- deterministic fallback`,
+- reservation table (vertex + edge)
+- rolling reservation window
+- deadlock escape`,
   },
   symmetry: {
     title: "Symmetry Reduction",
@@ -409,7 +403,7 @@ window.addEventListener('resize', () => {
 function updateFlow(active) {
   flowButtons.forEach((b) => b.classList.toggle("is-active", b.dataset.flow === active));
   const captions = {
-    plan: "Plan: prioritized time-aware A* with reservations.",
+    plan: "Plan: cooperative space-time A* with rolling reservations.",
     symmetry: "Symmetry: role-orbit reduction and canonicalization.",
     verify: "Verify: bounded safety checks on the quotient model.",
     refine: "Refine: constraints injected from counterexamples.",
@@ -921,7 +915,7 @@ if (algoCanvas) {
     if (frontierCount >= astarPath.length) {
       astarPath.forEach((p) => drawCell(p, "rgba(255,200,100,0.7)"));
     }
-    algoCaption.textContent = "A*: frontier expansion (blue) and final path (amber).";
+    algoCaption.textContent = "A*: frontier expansion (blue) and final path (amber) under space-time constraints.";
   }
 
   function drawPrioritized() {
@@ -1016,9 +1010,9 @@ if (algoCanvas) {
       ctx.fillText("2", pB.x + cell/2, pB.y + cell/2);
       
       if (t >= 5) {
-        algoCaption.textContent = "Prioritized planner phase 1: initial plans conflict at (5,5), time step " + t + ".";
+        algoCaption.textContent = "Cooperative planner phase 1: initial trajectories conflict at (5,5), time step " + t + ".";
       } else {
-        algoCaption.textContent = "Prioritized planner phase 1: agents plan toward shelves before reservation-based conflict handling.";
+        algoCaption.textContent = "Cooperative planner phase 1: independent plans before reservation and constraint handling.";
       }
     } else {
       // Phase 2: Show replanned paths
@@ -1114,9 +1108,9 @@ if (algoCanvas) {
       ctx.fillText("2", pB.x + cell/2, pB.y + cell/2);
       
       if (t < 4) {
-        algoCaption.textContent = "Prioritized planner phase 2: reservation-aware rerouting avoids (5,5).";
+        algoCaption.textContent = "Cooperative planner phase 2: reservation-aware rerouting and timed occupancy checks avoid (5,5).";
       } else {
-        algoCaption.textContent = "Prioritized planner phase 2: conflict resolved, both agents reach goals safely.";
+        algoCaption.textContent = "Cooperative planner phase 2: conflict resolved and both agents reach goals safely.";
       }
     }
   }
@@ -1550,9 +1544,9 @@ if (algoCanvas) {
       // Update caption immediately on mode change
       if (algoCaption) {
         if (algoMode === "astar") {
-          algoCaption.textContent = "A*: frontier expansion (blue) and final path (amber).";
+          algoCaption.textContent = "A*: frontier expansion (blue) and final path (amber) under space-time constraints.";
         } else if (algoMode === "prioritized") {
-          algoCaption.textContent = "Prioritized planner phase 1: agents plan toward shelves before reservation-based conflict handling.";
+          algoCaption.textContent = "Cooperative planner phase 1: independent plans before reservation and constraint handling.";
         } else if (algoMode === "symmetry") {
           algoCaption.textContent = symmetryScenarios[0].caption;
         } else if (algoMode === "quotient") {

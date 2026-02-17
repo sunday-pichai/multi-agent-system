@@ -3,12 +3,12 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes, viewport-fit=cover" />
-    <title>Warehouse MAS Documentation — Multi-Agent System with Formal Verification</title>
+    <title>Warehouse MAS Documentation - Multi-Agent Planning and Verification</title>
     
     <!-- Meta tags -->
-    <meta name="description" content="Documentation for a multi-agent warehouse simulator with prioritized time-aware A*, symmetry-reduced quotient verification, and constraint-based refinement." />
+    <meta name="description" content="Documentation for a deterministic warehouse multi-agent system with cooperative space-time A*, Hungarian assignment, symmetry-reduced verification, and constraint refinement." />
     <meta name="og:title" content="Warehouse MAS Documentation" />
-    <meta name="og:description" content="Multi-agent warehouse simulator with formal verification and symmetry reduction" />
+    <meta name="og:description" content="Cooperative space-time planning, Hungarian assignment, and formal safety verification for multi-agent warehouses." />
     <meta name="theme-color" content="#3182ce" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -145,10 +145,11 @@
           </div>
           <h1 class="page-title">Warehouse Multi-Agent System</h1>
           <p class="page-subtitle">
-            Deterministic multi-agent coordination with formal verification, symmetry reduction, and constraint-based planning
+            Deterministic multi-agent coordination with cooperative space-time planning, quotient verification, and iterative safety refinement
           </p>
           <div class="badge-row">
-            <span class="badge">Prioritized A*</span>
+            <span class="badge">Cooperative Space-Time A*</span>
+            <span class="badge">Hungarian Matching</span>
             <span class="badge">Symmetry Reduction</span>
             <span class="badge">Formal Verification</span>
             <span class="badge">Python 3.8+</span>
@@ -171,9 +172,12 @@
               <div class="info-card info-card--primary">
                 <h3>Key Features</h3>
                 <ul class="feature-list">
-                  <li><strong>Prioritized Time-Aware A*:</strong> Reservation-based pathfinding with deterministic conflict avoidance</li>
+                  <li><strong>Cooperative Space-Time A*:</strong> Plans over (x, y, direction, time) with vertex and edge conflict checks</li>
+                  <li><strong>Global Task Matching:</strong> Hungarian minimum-cost assignment for robot-to-shelf and delivery-goal allocation</li>
+                  <li><strong>Rolling Reservations:</strong> Short reservation window with conservative unknown-agent occupancy blocking</li>
+                  <li><strong>Deadlock Recovery:</strong> Idle-aware escape actions to break long stalls safely</li>
                   <li><strong>Symmetry Reduction:</strong> Orbit-based state space reduction for scalable verification</li>
-                  <li><strong>Bounded Verification:</strong> Formal safety checks on quotient models</li>
+                  <li><strong>Bounded Verification:</strong> Formal safety checks on quotient models with delta-q tracking</li>
                   <li><strong>Constraint Refinement:</strong> Iterative constraint extraction from counterexamples</li>
                 </ul>
               </div>
@@ -250,7 +254,7 @@ source .venv/bin/activate  # Linux/Mac</code></pre>
               </div>
               
               <div class="info-card info-card--tip">
-                <strong>💡 Tip:</strong> For better performance on large grids, reduce the grid size or time steps in <code>config.yaml</code>
+                <strong>Tip:</strong> For faster runs on large layouts, reduce <code>planning.horizon</code>, <code>planning.reservation_window</code>, or agent/shelf counts in <code>config.yaml</code>.
               </div>
             </div>
           </section>
@@ -291,14 +295,19 @@ source .venv/bin/activate  # Linux/Mac</code></pre>
             <div class="section-content">
               <p>
                 Agents operate on a discrete grid with pickup/drop objectives. Planning is
-                deterministic (prioritized time-aware A* with reservations). Safety is
-                checked via bounded verification on a symmetry-reduced quotient model.
+                deterministic and conflict-aware: global task matching, cooperative space-time A*,
+                rolling reservations, and deadlock recovery. Safety is checked via bounded
+                verification on a symmetry-reduced quotient model.
               </p>
               
               <div class="grid-4">
                 <div class="feature-card">
                   <h3>Planning</h3>
-                  <p>Agents plan sequentially in time-expanded space, reserving positions and edges to prevent vertex and head-on conflicts.</p>
+                  <p>Agents plan sequentially in time-expanded space with vertex/edge reservations, conservative unknown-agent occupancy, and anti-stall escape actions.</p>
+                </div>
+                <div class="feature-card">
+                  <h3>Assignment</h3>
+                  <p>Hungarian minimum-cost matching assigns robots to requested shelves and allocates delivery goals to reduce congestion.</p>
                 </div>
                 <div class="feature-card">
                   <h3>Symmetry</h3>
@@ -322,27 +331,29 @@ source .venv/bin/activate  # Linux/Mac</code></pre>
             <div class="section-content">
               
               <div class="algo-card" id="planning">
-                <h3>Path Planning (Prioritized Time-Aware A*)</h3>
+                <h3>Path Planning (Cooperative Space-Time A*)</h3>
                 <p>
                   Each agent plans in a time-expanded grid while respecting reservations from already-planned agents.
-                  When a full path is unavailable, a deterministic immediate fallback keeps agents moving safely.
+                  The planner also blocks likely occupied cells for not-yet-planned agents, uses rolling reservation windows,
+                  and applies idle-aware escape actions to prevent deadlock.
                 </p>
                 <div class="code-block">
-                  <pre><code>Planner:
-- time-expanded grid
-- reservation table
-- edge + vertex conflict checks
-- deterministic fallback action</code></pre>
+                  <pre><code>Planner core:
+- cooperative A* on (x, y, dir, t)
+- vertex + edge reservations
+- conservative unknown-agent occupancy
+- rolling reservation window (WHCA*-style)
+- idle-aware escape action</code></pre>
                 </div>
                 
                 <h4 style="margin-top: 2rem;">Interactive Demo: A* Pathfinding</h4>
                 <div class="demo-controls">
                   <button class="demo-btn is-active" data-algo="astar">A* Expansion</button>
-                  <button class="demo-btn" data-algo="prioritized">Prioritized Planning</button>
+                  <button class="demo-btn" data-algo="prioritized">Cooperative Planning</button>
                 </div>
                 <div class="demo-canvas-wrapper">
                   <canvas id="algoCanvas" width="560" height="336"></canvas>
-                  <p class="canvas-caption" id="algoCaption">A*: frontier expansion toward the goal</p>
+                  <p class="canvas-caption" id="algoCaption">A*: frontier expansion toward the goal with space-time constraints</p>
                 </div>
               </div>
 
@@ -359,37 +370,6 @@ source .venv/bin/activate  # Linux/Mac</code></pre>
 - shrink state space</code></pre>
                 </div>
 
-                <h4 style="margin-top: 2rem;">Before vs After Symmetry Reduction</h4>
-                <p>
-                  Role-orbit grouping collapses symmetric permutations. In this project, roles are
-                  derived from carrying status (idle, carrying requested, carrying non-requested).
-                </p>
-                <div class="comparison-table">
-                  <div class="comparison-cell comparison-head">Aspect</div>
-                  <div class="comparison-cell comparison-head">Full System</div>
-                  <div class="comparison-cell comparison-head">Symmetry-Reduced (Quotient)</div>
-
-                  <div class="comparison-cell comparison-label">Agents represented</div>
-                  <div class="comparison-cell">All N agents explicitly modeled</div>
-                  <div class="comparison-cell">k role orbits (k ≤ 3 in this project)</div>
-
-                  <div class="comparison-cell comparison-label">State size</div>
-                  <div class="comparison-cell">O(N · d) full agent state</div>
-                  <div class="comparison-cell">O(k · d) representative state</div>
-
-                  <div class="comparison-cell comparison-label">Verification cost</div>
-                  <div class="comparison-cell">Cver(n) over full dimension n = N · d</div>
-                  <div class="comparison-cell">Cver(m) with m ≪ n</div>
-
-                  <div class="comparison-cell comparison-label">Counterexamples</div>
-                  <div class="comparison-cell">Full traces over all agents</div>
-                  <div class="comparison-cell">Lifted from quotient representatives</div>
-
-                  <div class="comparison-cell comparison-label">Memory</div>
-                  <div class="comparison-cell">O(n) full-state storage</div>
-                  <div class="comparison-cell">O(m) reduced storage</div>
-                </div>
-                
                 <h4 style="margin-top: 2rem;">Interactive Demo: Symmetry Reduction</h4>
                 <div class="demo-controls">
                   <button class="demo-btn" data-algo="symmetry">Symmetry Grouping</button>
@@ -447,7 +427,7 @@ source .venv/bin/activate  # Linux/Mac</code></pre>
                 </div>
                 <div class="demo-canvas-wrapper">
                   <canvas id="flowChart" width="600" height="320"></canvas>
-                  <p class="canvas-caption" id="flowChartCaption">Plan → Symmetry → Verify → Refine</p>
+                  <p class="canvas-caption" id="flowChartCaption">Plan -> Symmetry -> Verify -> Refine</p>
                 </div>
               </div>
             </div>
@@ -467,7 +447,10 @@ source .venv/bin/activate  # Linux/Mac</code></pre>
                 <pre><code>planning:
   horizon: 30
   astar_max_nodes: 3500
-  idle_limit: 4</code></pre>
+  idle_limit: 4
+  reservation_window: 8
+  unplanned_hold_steps: 2
+  escape_idle_steps: 6</code></pre>
               </div>
 
               <h3>Verification Configuration</h3>

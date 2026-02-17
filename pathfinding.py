@@ -13,6 +13,12 @@ GridPos = Tuple[int, int]
 FORWARD_DX = (0, 1, 0, -1)
 FORWARD_DY = (-1, 0, 1, 0)
 ACTION_ORDER = (Action.FORWARD, Action.TURN_LEFT, Action.TURN_RIGHT, Action.WAIT)
+ACTION_COSTS = {
+    Action.FORWARD: 1.0,
+    Action.TURN_LEFT: 1.0,
+    Action.TURN_RIGHT: 1.0,
+    Action.WAIT: 1.25,
+}
 
 NO_TARGET_SCORES = {
     Action.FORWARD: 0.0,
@@ -55,11 +61,17 @@ class ReservationTable(_TimedTable):
     def is_edge_reserved(self, from_pos: GridPos, to_pos: GridPos, t: int) -> bool:
         return self.has_edge(from_pos, to_pos, t)
 
+    def reserve_position(self, pos: GridPos, t: int) -> None:
+        self.positions[t].add(pos)
+
+    def reserve_edge(self, from_pos: GridPos, to_pos: GridPos, t: int) -> None:
+        self.edges[t].add((from_pos, to_pos))
+
     def reserve_positions(self, positions: List[GridPos]) -> None:
         for t, pos in enumerate(positions):
-            self.positions[t].add(pos)
+            self.reserve_position(pos, t)
             if t and positions[t - 1] != pos:
-                self.edges[t].add((positions[t - 1], pos))
+                self.reserve_edge(positions[t - 1], pos, t)
 
 
 class ConstraintTable(_TimedTable):
@@ -78,6 +90,81 @@ class ConstraintTable(_TimedTable):
 
 def manhattan(a: GridPos, b: GridPos) -> int:
     return abs(a[0] - b[0]) + abs(a[1] - b[1])
+
+
+def minimum_cost_matching(costs: List[List[float]]) -> List[int]:
+    """Return column assignment per row using Hungarian algorithm.
+
+    - `costs[i][j]` is cost of assigning row i to column j
+    - Return list of length rows with chosen column index or -1
+    """
+    if not costs:
+        return []
+    row_count = len(costs)
+    col_count = len(costs[0]) if costs[0] else 0
+    if col_count == 0:
+        return [-1] * row_count
+
+    size = max(row_count, col_count)
+    max_cost = max((max(row) for row in costs if row), default=0.0)
+    pad_cost = max_cost + 1e6
+
+    matrix = [[pad_cost for _ in range(size)] for _ in range(size)]
+    for r in range(row_count):
+        for c in range(col_count):
+            matrix[r][c] = float(costs[r][c])
+
+    u = [0.0] * (size + 1)
+    v = [0.0] * (size + 1)
+    p = [0] * (size + 1)
+    way = [0] * (size + 1)
+
+    for i in range(1, size + 1):
+        p[0] = i
+        minv = [float("inf")] * (size + 1)
+        used = [False] * (size + 1)
+        j0 = 0
+        while True:
+            used[j0] = True
+            i0 = p[j0]
+            delta = float("inf")
+            j1 = 0
+            for j in range(1, size + 1):
+                if used[j]:
+                    continue
+                cur = matrix[i0 - 1][j - 1] - u[i0] - v[j]
+                if cur < minv[j]:
+                    minv[j] = cur
+                    way[j] = j0
+                if minv[j] < delta:
+                    delta = minv[j]
+                    j1 = j
+            for j in range(size + 1):
+                if used[j]:
+                    u[p[j]] += delta
+                    v[j] -= delta
+                else:
+                    minv[j] -= delta
+            j0 = j1
+            if p[j0] == 0:
+                break
+        while True:
+            j1 = way[j0]
+            p[j0] = p[j1]
+            j0 = j1
+            if j0 == 0:
+                break
+
+    assignment = [-1] * row_count
+    for j in range(1, size + 1):
+        i = p[j]
+        if i == 0:
+            continue
+        row = i - 1
+        col = j - 1
+        if row < row_count and col < col_count:
+            assignment[row] = col
+    return assignment
 
 
 def apply_action(
@@ -145,18 +232,18 @@ def astar_time(
     reservations: ReservationTable,
     max_time: int,
     blocked_t1: Set[GridPos],
+    blocked_by_time: Optional[Dict[int, Set[GridPos]]] = None,
     blocked_static: Optional[Set[GridPos]] = None,
     visual: Optional[Dict[str, object]] = None,
     constraints: Optional[Iterable[ConstraintTable]] = None,
     max_expansions: int = 6000,
 ) -> Optional[List[Action]]:
-    del visual
 
     start = NodeKey(start_pos[0], start_pos[1], start_dir.value, 0)
-    open_heap: List[Tuple[int, int, int, NodeKey]] = []
-    heapq.heappush(open_heap, (manhattan(start_pos, goal), 0, 0, start))
+    open_heap: List[Tuple[float, float, int, NodeKey]] = []
+    heapq.heappush(open_heap, (float(manhattan(start_pos, goal)), 0.0, 0, start))
 
-    g_score: Dict[NodeKey, int] = {start: 0}
+    g_score: Dict[NodeKey, float] = {start: 0.0}
     parent: Dict[NodeKey, Tuple[NodeKey, Action]] = {}
     sequence = 0
     expansions = 0
@@ -166,7 +253,7 @@ def astar_time(
         expansions += 1
         if expansions > max_expansions:
             return None
-        if g != g_score.get(current, float("inf")):
+        if g > g_score.get(current, float("inf")) + 1e-9:
             continue
 
         cur_pos = (current.x, current.y)
@@ -197,6 +284,8 @@ def astar_time(
                 continue
             if nt == 1 and next_pos in blocked_t1:
                 continue
+            if blocked_by_time and next_pos in blocked_by_time.get(nt, ()):
+                continue
             if reservations.is_reserved(next_pos, nt):
                 continue
             if cur_pos != next_pos and (
@@ -208,14 +297,14 @@ def astar_time(
                 continue
 
             next_key = NodeKey(nx, ny, ndir.value, nt)
-            next_g = g + 1
-            if next_g >= g_score.get(next_key, float("inf")):
+            next_g = g + ACTION_COSTS.get(action, 1.0)
+            if next_g >= g_score.get(next_key, float("inf")) - 1e-9:
                 continue
             g_score[next_key] = next_g
             sequence += 1
             heapq.heappush(
                 open_heap,
-                (next_g + manhattan(next_pos, goal), next_g, sequence, next_key),
+                (next_g + float(manhattan(next_pos, goal)), next_g, sequence, next_key),
             )
             parent[next_key] = (current, action)
 
@@ -248,30 +337,39 @@ class AssignmentManager:
             if shelf["requested"] and not shelf["carried"] and shelf["id"] not in self.shelf_to_agent
         ]
 
-        while free_robots and free_shelves:
-            best_dist = float("inf")
-            best_robot_idx = -1
-            best_shelf_idx = -1
+        if not free_robots or not free_shelves:
+            return
 
-            for r_idx, robot in enumerate(free_robots):
-                for s_idx, shelf in enumerate(free_shelves):
-                    dist = manhattan((robot.x, robot.y), (shelf["x"], shelf["y"]))
-                    if dist < best_dist:
-                        best_dist = dist
-                        best_robot_idx = r_idx
-                        best_shelf_idx = s_idx
+        costs: List[List[float]] = []
+        for robot in free_robots:
+            row: List[float] = []
+            for shelf in free_shelves:
+                dist = manhattan((robot.x, robot.y), (shelf["x"], shelf["y"]))
+                # Slightly favor keeping assignment local to reduce churn in crowded scenes.
+                row.append(float(dist))
+            costs.append(row)
 
-            if best_robot_idx < 0:
-                break
-
-            robot = free_robots.pop(best_robot_idx)
-            shelf = free_shelves.pop(best_shelf_idx)
+        assignment = minimum_cost_matching(costs)
+        for r_idx, s_idx in enumerate(assignment):
+            if s_idx < 0 or s_idx >= len(free_shelves):
+                continue
+            robot = free_robots[r_idx]
+            shelf = free_shelves[s_idx]
             self.agent_to_shelf[robot.id] = shelf["id"]
             self.shelf_to_agent[shelf["id"]] = robot.id
 
-    def get_target_for_robot(self, robot: Robot, env) -> Optional[GridPos]:
+    def get_target_for_robot(
+        self,
+        robot: Robot,
+        env,
+        delivery_targets: Optional[Dict[int, GridPos]] = None,
+    ) -> Optional[GridPos]:
         if robot.carrying is not None:
             if bool(robot.carrying.get("requested")):
+                if delivery_targets is not None:
+                    target = delivery_targets.get(robot.id)
+                    if target is not None:
+                        return target
                 return self._nearest_goal((robot.x, robot.y), env.GOALS)
             return None
 
@@ -337,15 +435,34 @@ class CooperativePlanner:
         self.assignment_manager = AssignmentManager()
         self.idle_tracker = IdleTracker()
         self.priority_offset = 0
+        self.reservation_window = max(2, min(self.plan_horizon, 8))
+        self.unplanned_hold_steps = 2
+        self.escape_idle_steps = 6
 
         try:
-            from config import ASTAR_MAX_NODES, IDLE_LIMIT
+            import config as cfg
 
-            self.astar_max_nodes = ASTAR_MAX_NODES
-            self.idle_tracker.idle_limit = IDLE_LIMIT
+            self.astar_max_nodes = int(getattr(cfg, "ASTAR_MAX_NODES", 3500))
+            self.idle_tracker.idle_limit = int(getattr(cfg, "IDLE_LIMIT", 4))
+            self.reservation_window = max(
+                2,
+                min(
+                    self.plan_horizon,
+                    int(getattr(cfg, "RESERVATION_WINDOW", self.reservation_window)),
+                ),
+            )
+            self.unplanned_hold_steps = max(
+                1, int(getattr(cfg, "UNPLANNED_HOLD_STEPS", self.unplanned_hold_steps))
+            )
+            self.escape_idle_steps = max(
+                2, int(getattr(cfg, "ESCAPE_IDLE_STEPS", self.escape_idle_steps))
+            )
         except ImportError:
             self.astar_max_nodes = 3500
             self.idle_tracker.idle_limit = 4
+            self.reservation_window = max(2, min(self.plan_horizon, 8))
+            self.unplanned_hold_steps = 2
+            self.escape_idle_steps = 6
 
     def add_constraint_position(self, pos: GridPos, t: int) -> None:
         if t < 0:
@@ -361,9 +478,17 @@ class CooperativePlanner:
         if not robots:
             return []
         shift = self.priority_offset % len(robots)
-        planning_order = robots[shift:] + robots[:shift]
+        rotated = robots[shift:] + robots[:shift]
         self.priority_offset = (self.priority_offset + 1) % len(robots)
-        return planning_order
+        rotated_index = {robot.id: idx for idx, robot in enumerate(rotated)}
+        return sorted(
+            rotated,
+            key=lambda robot: (
+                0 if (robot.carrying is not None and bool(robot.carrying.get("requested"))) else 1,
+                -self.idle_tracker.idle_steps.get(robot.id, 0),
+                rotated_index.get(robot.id, 0),
+            ),
+        )
 
     def _base_debug(self, robot_id: int, priority: int) -> Dict[str, object]:
         return {
@@ -389,7 +514,7 @@ class CooperativePlanner:
             actions,
             self.grid_w,
             self.grid_h,
-            self.plan_horizon,
+            self.reservation_window,
         )
         reservations.reserve_positions(positions)
 
@@ -413,17 +538,26 @@ class CooperativePlanner:
         robot: Robot,
         env,
         reservations: ReservationTable,
-        occupied_now: Set[GridPos],
+        blocked_by_time: Dict[int, Set[GridPos]],
         shelf_positions: Set[GridPos],
         allowed_shelf_entries: Dict[int, GridPos],
+        delivery_targets: Dict[int, GridPos],
         debug: Dict[str, object],
     ) -> Tuple[Action, List[Action]]:
-        target = self.assignment_manager.get_target_for_robot(robot, env)
-        blocked_t1 = occupied_now - {(robot.x, robot.y)}
+        target = self.assignment_manager.get_target_for_robot(
+            robot,
+            env,
+            delivery_targets=delivery_targets,
+        )
+        blocked_t1 = set(blocked_by_time.get(1, set()))
         blocked_static = self._blocked_shelf_positions(robot, target, env)
+        idle_steps = self.idle_tracker.idle_steps.get(robot.id, 0)
 
         debug["target"] = target
         debug["blocked_t1_count"] = len(blocked_t1)
+        debug["blocked_future_count"] = sum(
+            len(cells) for t, cells in blocked_by_time.items() if t > 1
+        )
         debug["blocked_static_count"] = len(blocked_static)
 
         if robot.carrying is None and target is not None and target in shelf_positions:
@@ -453,6 +587,7 @@ class CooperativePlanner:
             reservations,
             self.plan_horizon,
             blocked_t1,
+            blocked_by_time=blocked_by_time,
             blocked_static=blocked_static,
             visual=None,
             constraints=[self.constraints],
@@ -463,8 +598,23 @@ class CooperativePlanner:
         debug["astar_found"] = bool(planned_path)
         debug["path_len"] = len(planned_path)
         debug["path_preview"] = [action.name for action in planned_path[:6]]
+        debug["idle_steps"] = idle_steps
 
         if planned_path:
+            if (
+                planned_path[0] == Action.WAIT
+                and target != (robot.x, robot.y)
+                and idle_steps >= self.escape_idle_steps
+            ):
+                escape_action = self._best_immediate_action(
+                    robot,
+                    target,
+                    reservations,
+                    blocked_t1 | blocked_static,
+                )
+                if escape_action != Action.WAIT:
+                    debug["mode"] = "stuck_path_escape"
+                    return escape_action, [escape_action]
             debug["mode"] = "astar_path"
             return planned_path[0], planned_path
 
@@ -472,14 +622,19 @@ class CooperativePlanner:
             debug["mode"] = "target_reached_wait"
             return Action.WAIT, []
 
-        debug["mode"] = "immediate_fallback"
-        action = self._best_immediate_action(
-            robot,
-            target,
-            reservations,
-            blocked_t1 | blocked_static,
-        )
-        return action, []
+        if idle_steps >= self.escape_idle_steps:
+            escape_action = self._best_immediate_action(
+                robot,
+                target,
+                reservations,
+                blocked_t1 | blocked_static,
+            )
+            if escape_action != Action.WAIT:
+                debug["mode"] = "no_path_escape"
+                return escape_action, [escape_action]
+
+        debug["mode"] = "no_spacetime_path_wait"
+        return Action.WAIT, []
 
     def compute_actions(self, env) -> List[int]:
         self.idle_tracker.track_idle_agents(env, self.assignment_manager)
@@ -490,6 +645,7 @@ class CooperativePlanner:
         actions_by_id: Dict[int, int] = {}
         allowed_shelf_entries: Dict[int, GridPos] = {}
         planner_debug_by_agent: Dict[int, Dict[str, object]] = {}
+        delivery_targets = self._assign_delivery_goals(env)
 
         planning_order = self._planning_order(sorted(env.robots, key=lambda r: r.id))
         priority_rank = {robot.id: idx for idx, robot in enumerate(planning_order)}
@@ -499,7 +655,16 @@ class CooperativePlanner:
             if not shelf["carried"]
         }
 
-        for robot in planning_order:
+        for idx, robot in enumerate(planning_order):
+            blocked_t1 = occupied_now - {(robot.x, robot.y)}
+            blocked_by_time: Dict[int, Set[GridPos]] = {1: set(blocked_t1)}
+            unplanned_positions = {
+                (other.x, other.y) for other in planning_order[idx + 1 :]
+            }
+            if unplanned_positions:
+                for t in range(2, self.unplanned_hold_steps + 1):
+                    blocked_by_time[t] = set(unplanned_positions)
+
             debug = self._base_debug(robot.id, priority_rank.get(robot.id, 0))
             if self._should_pick_drop(robot, env):
                 chosen_action, planned_path = Action.PICK_DROP, []
@@ -509,9 +674,10 @@ class CooperativePlanner:
                     robot,
                     env,
                     reservations,
-                    occupied_now,
+                    blocked_by_time,
                     shelf_positions,
                     allowed_shelf_entries,
+                    delivery_targets,
                     debug,
                 )
             self._commit_plan(
@@ -565,6 +731,36 @@ class CooperativePlanner:
         if not requested:
             return None
         return min(requested, key=lambda pos: manhattan((robot.x, robot.y), pos))
+
+    def _assign_delivery_goals(self, env) -> Dict[int, GridPos]:
+        carriers = [
+            robot
+            for robot in env.robots
+            if robot.carrying is not None and bool(robot.carrying.get("requested"))
+        ]
+        goals = list(env.GOALS)
+        if not carriers or not goals:
+            return {}
+
+        slots: List[Tuple[GridPos, int]] = []
+        for tier in range(len(carriers)):
+            for goal in goals:
+                slots.append((goal, tier))
+
+        costs: List[List[float]] = []
+        for robot in carriers:
+            row: List[float] = []
+            for goal, tier in slots:
+                row.append(float(manhattan((robot.x, robot.y), goal)) + (2.0 * tier))
+            costs.append(row)
+
+        assignment = minimum_cost_matching(costs)
+        targets: Dict[int, GridPos] = {}
+        for r_idx, slot_idx in enumerate(assignment):
+            if slot_idx < 0 or slot_idx >= len(slots):
+                continue
+            targets[carriers[r_idx].id] = slots[slot_idx][0]
+        return targets
 
     def _sanitize_immediate_conflicts(
         self,
