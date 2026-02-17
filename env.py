@@ -24,7 +24,6 @@ class WarehouseEnv:
         self.num_agents = num_agents if num_agents is not None else cfg.NUM_AGENTS
         self.render_enabled = render
         self.render_fps = cfg.RENDER_FPS
-        self.show_astar_visualization = bool(getattr(cfg, "ASTAR_VISUALIZATION", True))
 
         if self.render_enabled:
             # 1440p resolution: 2560x1440
@@ -45,8 +44,7 @@ class WarehouseEnv:
             height_px = self.grid_h * cell_size
             self.grid_width_px = width_px
             self.grid_height_px = height_px
-            self.panel_width = max(360, cell_size * 6)
-            self.screen = pygame.display.set_mode((width_px + self.panel_width, height_px))
+            self.screen = pygame.display.set_mode((width_px, height_px))
             pygame.display.set_caption("Warehouse Simulation")
             self.clock = pygame.time.Clock()
             # High-quality fonts for crisp rendering - scale with cell size
@@ -57,12 +55,10 @@ class WarehouseEnv:
                 self.font = pygame.font.SysFont("arial", font_size, bold=True)
                 self.font_small = pygame.font.SysFont("arial", font_small_size, bold=True)
                 self.font_tiny = pygame.font.SysFont("arial", font_tiny_size)
-                self.font_panel = pygame.font.SysFont("consolas", max(12, font_size - 2))
             except:
                 self.font = pygame.font.Font(None, font_size)
                 self.font_small = pygame.font.Font(None, font_small_size)
                 self.font_tiny = pygame.font.Font(None, font_tiny_size)
-                self.font_panel = pygame.font.Font(None, max(12, font_size - 2))
             self.cell_size = cell_size
 
         self.reset()
@@ -104,15 +100,6 @@ class WarehouseEnv:
         self._planner_allowed_shelf_entries: Dict[int, GridPos] = {}
         self._planner_last_actions: List[int] = [Action.WAIT.value for _ in range(self.num_agents)]
         self._planner_debug_by_agent: Dict[int, Dict] = {}
-        self._selected_astar_visual: Dict[str, object] = {
-            "agent_id": self.selected_agent_id,
-            "found": False,
-            "expanded": [],
-            "frontier": [],
-            "path_positions": [],
-            "movement_path_positions": [],
-            "mode": "none",
-        }
         self.event_log: List[str] = []
         self.traffic_heat: List[List[int]] = [[0 for _ in range(self.grid_w)] for _ in range(self.grid_h)]
         self.collision_heat: List[List[int]] = [[0 for _ in range(self.grid_w)] for _ in range(self.grid_h)]
@@ -142,8 +129,6 @@ class WarehouseEnv:
                 self._cycle_selected_agent(1)
             elif event.key in (pygame.K_LEFT, pygame.K_COMMA):
                 self._cycle_selected_agent(-1)
-            elif event.key == pygame.K_v:
-                self.show_astar_visualization = not self.show_astar_visualization
 
     def _cycle_selected_agent(self, delta: int) -> None:
         if not self.robots:
@@ -384,7 +369,6 @@ class WarehouseEnv:
 
         cell_size = getattr(self, 'cell_size', cfg.CELL_SIZE)
         grid_width_px = getattr(self, 'grid_width_px', self.grid_w * cell_size)
-        panel_width = getattr(self, 'panel_width', 360)
         # Pure white background for crisp minimal look
         self.screen.fill(cfg.BG_PURE)
 
@@ -483,10 +467,6 @@ class WarehouseEnv:
             text = self.font_tiny.render(shelf_id_text, True, text_color)
             text_rect = text.get_rect(center=shelf_rect.center)
             self.screen.blit(text, text_rect)
-
-        # Draw A* visual overlay for selected agent only (optional)
-        if self.show_astar_visualization:
-            self._draw_selected_astar_overlay(cell_size)
 
         # Draw robot symmetry orbits
         try:
@@ -669,13 +649,6 @@ class WarehouseEnv:
             corner_rect = pygame.Rect(corner_x, corner_y, corner_size, corner_size)
             pygame.draw.rect(self.screen, orbit_color, corner_rect)
 
-            # Selected-agent marker: tiny red square on left side (mirrors right-side marker)
-            if robot.id == self.selected_agent_id:
-                left_corner_x = center_x - radius + 1
-                left_corner_y = center_y - radius + 1
-                selected_rect = pygame.Rect(left_corner_x, left_corner_y, corner_size, corner_size)
-                pygame.draw.rect(self.screen, (230, 55, 55), selected_rect)
-
             # Robot ID removed - clean minimal design without numbers
 
         # Conflict highlight overlay
@@ -695,153 +668,11 @@ class WarehouseEnv:
                     y2 = to_pos[1] * cell_size + cell_size // 2
                     pygame.draw.line(self.screen, (255, 80, 80), (x1, y1), (x2, y2), 3)
 
-        self._draw_side_panel(grid_width_px, panel_width, cell_size)
-
         pygame.display.flip()
         if self.render_fps > 0:
             self.clock.tick(self.render_fps)
         else:
             self.clock.tick(0)
-
-    def _draw_selected_astar_overlay(self, cell_size: int) -> None:
-        visual = self._selected_astar_visual if isinstance(self._selected_astar_visual, dict) else {}
-        expanded = visual.get("expanded", [])
-        frontier = visual.get("frontier", [])
-        path_positions = visual.get("path_positions", [])
-        movement_path_positions = visual.get("movement_path_positions", [])
-        start = visual.get("start")
-        goal = visual.get("goal")
-
-        # Cohesive A* palette (teal/indigo theme)
-        expanded_rgba = (175, 210, 235, 120)
-        frontier_rgba = (172, 112, 245, 180)
-        path_outline_rgb = (28, 56, 96)
-        path_core_rgb = (95, 154, 255)
-        start_rgb = (41, 171, 135)
-        goal_rgb = (223, 92, 92)
-
-        path_set = set(path_positions if isinstance(path_positions, list) else [])
-        frontier_set = set(frontier if isinstance(frontier, list) else [])
-        expanded_set = set(expanded if isinstance(expanded, list) else [])
-        expanded_only = expanded_set - path_set
-        frontier_only = frontier_set - expanded_set - path_set
-
-        for pos in list(expanded_only)[:700]:
-            x, y = pos
-            if 0 <= x < self.grid_w and 0 <= y < self.grid_h:
-                overlay = pygame.Surface((cell_size - 4, cell_size - 4), pygame.SRCALPHA)
-                overlay.fill(expanded_rgba)
-                self.screen.blit(overlay, (x * cell_size + 2, y * cell_size + 2))
-
-        for pos in list(frontier_only)[:700]:
-            x, y = pos
-            if 0 <= x < self.grid_w and 0 <= y < self.grid_h:
-                overlay = pygame.Surface((cell_size - 2, cell_size - 2), pygame.SRCALPHA)
-                overlay.fill(frontier_rgba)
-                self.screen.blit(overlay, (x * cell_size + 1, y * cell_size + 1))
-
-        draw_path = movement_path_positions if isinstance(movement_path_positions, list) else []
-        if len(draw_path) < 2 and isinstance(path_positions, list):
-            draw_path = path_positions
-
-        if isinstance(draw_path, list) and len(draw_path) >= 2:
-            for idx in range(len(draw_path) - 1):
-                x1, y1 = draw_path[idx]
-                x2, y2 = draw_path[idx + 1]
-                sx = x1 * cell_size + cell_size // 2
-                sy = y1 * cell_size + cell_size // 2
-                ex = x2 * cell_size + cell_size // 2
-                ey = y2 * cell_size + cell_size // 2
-                pygame.draw.line(self.screen, path_outline_rgb, (sx, sy), (ex, ey), 5)
-                pygame.draw.line(self.screen, path_core_rgb, (sx, sy), (ex, ey), 3)
-
-        if isinstance(start, tuple) and len(start) == 2:
-            sx = start[0] * cell_size + cell_size // 2
-            sy = start[1] * cell_size + cell_size // 2
-            pygame.gfxdraw.filled_circle(self.screen, sx, sy, 5, start_rgb)
-
-        if isinstance(goal, tuple) and len(goal) == 2:
-            gx = goal[0] * cell_size + cell_size // 2
-            gy = goal[1] * cell_size + cell_size // 2
-            pygame.gfxdraw.filled_circle(self.screen, gx, gy, 5, goal_rgb)
-
-    def _draw_side_panel(self, grid_width_px: int, panel_width: int, cell_size: int) -> None:
-        panel_rect = pygame.Rect(grid_width_px, 0, panel_width, self.grid_h * cell_size)
-        pygame.draw.rect(self.screen, (248, 249, 252), panel_rect)
-        pygame.draw.line(self.screen, (215, 220, 230), (grid_width_px, 0), (grid_width_px, panel_rect.height), 2)
-
-        x = grid_width_px + 12
-        y = 10
-        line_h = 18
-
-        def draw_text(text: str, color=(35, 35, 40), small=True):
-            nonlocal y
-            font = self.font_panel if small else self.font_small
-            surface = font.render(text, True, color)
-            self.screen.blit(surface, (x, y))
-            y += line_h
-
-        # Legend only
-        draw_text("What the colors mean", color=(25, 35, 70), small=False)
-        draw_text("Blue robot = robot with no shelf")
-        draw_text("Orange robot = robot carrying a shelf")
-        draw_text("Gold dot = carrying a requested shelf")
-        draw_text("Small right square = robot group")
-        draw_text("Small red square = selected robot")
-        draw_text("Light blue = cells A* already checked")
-        draw_text("Purple = next cells A* may check")
-        draw_text("Blue line = planned movement route")
-        draw_text("Green/Red dots = route start/goal")
-        draw_text(f"A* view = {'ON' if self.show_astar_visualization else 'OFF'} (press V)")
-
-        y += 6
-        draw_text("Selected robot details", color=(25, 35, 70), small=False)
-        selected: Optional[Robot] = next(
-            (robot for robot in self.robots if robot.id == self.selected_agent_id),
-            None,
-        )
-        if selected is None and self.robots:
-            selected = self.robots[0]
-            self.selected_agent_id = selected.id
-
-        if selected is not None:
-            action_val = self._planner_last_actions[selected.id] if selected.id < len(self._planner_last_actions) else Action.WAIT.value
-            action_name = self._decode_action(action_val).name
-            carrying = "yes" if selected.carrying is not None else "no"
-            debug = self._planner_debug_by_agent.get(selected.id, {})
-            target = debug.get("target", self._planner_allowed_shelf_entries.get(selected.id))
-            mode = debug.get("mode", "-")
-            astar_found = "yes" if debug.get("astar_found", False) else "no"
-            path_len = debug.get("path_len", 0)
-            path_preview = debug.get("path_preview", [])
-            if path_preview:
-                path_preview_text = ",".join(path_preview[:4])
-            else:
-                path_preview_text = "-"
-            assigned_shelf_id = debug.get("assigned_shelf_id", "-")
-            idle_steps = debug.get("idle_steps", 0)
-            blocked_t1_count = debug.get("blocked_t1_count", 0)
-            blocked_static_count = debug.get("blocked_static_count", 0)
-            sanitized = "yes" if debug.get("sanitized", False) else "no"
-            visual = self._selected_astar_visual if isinstance(self._selected_astar_visual, dict) else {}
-            vis_found = "yes" if visual.get("found", False) else "no"
-            vis_mode = visual.get("mode", "-")
-            vis_expanded = len(visual.get("expanded", [])) if isinstance(visual.get("expanded", []), list) else 0
-            vis_frontier = len(visual.get("frontier", [])) if isinstance(visual.get("frontier", []), list) else 0
-            visual_state = "on" if self.show_astar_visualization else "off"
-
-            draw_text(f"Robot ID: {selected.id}")
-            draw_text(f"Position: ({selected.x},{selected.y})  Facing: {selected.dir.name}")
-            draw_text(f"Current action: {action_name}  Carrying shelf: {carrying}")
-            draw_text(f"Planner mode: {mode}  Safety override: {sanitized}")
-            draw_text(f"Current target: {target if target else '-'}  Assigned shelf: {assigned_shelf_id}")
-            draw_text(f"A* found a route: {astar_found}  Route length: {path_len}")
-            draw_text(f"Route preview: {path_preview_text}")
-            draw_text(f"A* visual: {visual_state}  Found: {vis_found}  Mode: {vis_mode}")
-            draw_text(f"Cells checked / frontier: {vis_expanded}/{vis_frontier}")
-            draw_text(f"Blocked now / blocked by shelves: {blocked_t1_count}/{blocked_static_count}")
-            draw_text(f"Steps without moving: {idle_steps}")
-            draw_text("To switch robot: click, TAB, < or >")
 
     def evaluate(
         self,

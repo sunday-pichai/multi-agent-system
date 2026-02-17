@@ -20,7 +20,6 @@ planning:
 
 render:
   fps: 2
-  astar_visualization: true
 
 verification:
   min_separation: 1

@@ -55,7 +55,6 @@ PLAN_HORIZON: int = 30
 ASTAR_MAX_NODES: int = 3500
 IDLE_LIMIT: int = 4
 RENDER_FPS: int = 2
-ASTAR_VISUALIZATION: bool = True
 
 
 # Verification and refinement defaults
@@ -77,7 +76,7 @@ STATE_SIZE: int = state_size()
 def load_from_yaml(path: Optional[str] = None) -> None:
     """Load optional overrides from YAML file into module-level settings."""
     global GRID_W, GRID_H, CELL_SIZE, NUM_AGENTS, NUM_SHELVES, GOALS
-    global PLAN_HORIZON, ASTAR_MAX_NODES, IDLE_LIMIT, RENDER_FPS, ASTAR_VISUALIZATION
+    global PLAN_HORIZON, ASTAR_MAX_NODES, IDLE_LIMIT, RENDER_FPS
     global MIN_SEPARATION, VERIFY_HORIZON, VERIFY_TRIALS
     global REFINE_ITERATIONS, REFINE_MAX_CONSTRAINTS, STATE_SIZE
 
@@ -124,8 +123,6 @@ def load_from_yaml(path: Optional[str] = None) -> None:
     render = data.get("render", {})
     if "fps" in render:
         RENDER_FPS = int(render["fps"])
-    if "astar_visualization" in render:
-        ASTAR_VISUALIZATION = bool(render["astar_visualization"])
 
     verification = data.get("verification", {})
     if "min_separation" in verification:
