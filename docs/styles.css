@@ -762,6 +762,23 @@ body.dark-mode .code-block {
   color: white;
 }
 
+.demo-btn--control {
+  border-style: dashed;
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+  background: transparent;
+}
+
+.demo-btn--control:hover {
+  background: var(--accent-light);
+}
+
+.demo-btn--control.is-paused {
+  background: var(--accent-primary);
+  border-color: var(--accent-primary);
+  color: #fff;
+}
+
 .demo-canvas-wrapper {
   margin: 1.5rem auto;
   max-width: 600px;

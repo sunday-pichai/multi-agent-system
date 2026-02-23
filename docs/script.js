@@ -643,13 +643,14 @@ if (canvas) {
 
 // ==================== Shared Scenario Data (Global Scope) ====================
 // Declare these as global variables so all canvas sections can access them
-let symmetryScenarios, quotientComparisonScenarios, verificationScenarios, refinementScenarios;
+let symmetryScenarios, quotientComparisonScenarios, quotientKeyScenarios, verificationScenarios, refinementScenarios, verifyRefineLoopScenarios;
 
 // Algorithm demo canvas
 const algoCanvas = document.getElementById("algoCanvas");
 const algoCaption = document.getElementById("algoCaption");
 const algoSection = document.getElementById("planning");
 const algoButtons = algoSection ? algoSection.querySelectorAll("[data-algo]") : [];
+const algoPauseButton = algoSection ? algoSection.querySelector("[data-control='algo-pause']") : null;
 const algoSurface = algoCanvas ? createHiResCanvas(algoCanvas) : null;
 
 const debugDiv = document.getElementById('debugStatus');
@@ -660,7 +661,7 @@ if (debugDiv) {
       symmetryCanvas: ${document.getElementById('symmetryCanvas') ? '✓' : '✗'}<br>
       verifyCanvas: ${document.getElementById('verifyCanvas') ? '✓' : '✗'}<br>
       symmetryScenarios: ${typeof symmetryScenarios !== 'undefined' && symmetryScenarios ? symmetryScenarios.length + ' items' : '✗ UNDEFINED'}<br>
-      Animation: ${algoPlaying ? '✓ Running' : '✗ Stopped'}
+      Animation: ${algoCanvas ? '✓ Running' : '✗ Stopped'}
     `;
   }, 1000);
 }
@@ -680,6 +681,13 @@ if (algoCanvas) {
   let tick = 0;
   let algoPlaying = true;
   let lastAlgoTick = 0;
+
+  function syncAlgoPauseButton() {
+    if (!algoPauseButton) return;
+    algoPauseButton.textContent = algoPlaying ? "Pause" : "Resume";
+    algoPauseButton.classList.toggle("is-paused", !algoPlaying);
+    algoPauseButton.setAttribute("aria-pressed", String(!algoPlaying));
+  }
 
   function updateAlgoLayout() {
     const size = algoSurface.resize();
@@ -708,6 +716,174 @@ if (algoCanvas) {
     { x: 1, y: 1 }, { x: 2, y: 1 }, { x: 2, y: 2 }, { x: 2, y: 3 }, { x: 2, y: 4 },
     { x: 2, y: 5 }, { x: 3, y: 5 }, { x: 4, y: 5 }, { x: 4, y: 6 }, { x: 5, y: 6 },
     { x: 6, y: 6 }, { x: 7, y: 6 }, { x: 8, y: 6 }, { x: 8, y: 7 },
+  ];
+  const astarSearchStages = [
+    {
+      label: "1) Initialize",
+      current: { x: 1, y: 1 },
+      closed: [],
+      open: [{ x: 2, y: 1 }, { x: 1, y: 2 }],
+      showPathLen: 0,
+      caption: "A*: Start node selected. Open set gets valid neighbors.",
+    },
+    {
+      label: "2) Expand Lowest f",
+      current: { x: 2, y: 1 },
+      closed: [{ x: 1, y: 1 }],
+      open: [{ x: 1, y: 2 }, { x: 2, y: 2 }],
+      showPathLen: 0,
+      caption: "A*: Pop lowest-f node from open set; move it into closed set.",
+    },
+    {
+      label: "3) Continue Expansion",
+      current: { x: 2, y: 2 },
+      closed: [{ x: 1, y: 1 }, { x: 2, y: 1 }],
+      open: [{ x: 1, y: 2 }, { x: 2, y: 3 }],
+      showPathLen: 0,
+      caption: "A*: Evaluate neighbors and update open set scores.",
+    },
+    {
+      label: "4) Push Along Corridor",
+      current: { x: 2, y: 3 },
+      closed: [{ x: 1, y: 1 }, { x: 2, y: 1 }, { x: 2, y: 2 }],
+      open: [{ x: 1, y: 3 }, { x: 2, y: 4 }],
+      showPathLen: 0,
+      caption: "A*: Vertical wall blocks direct east moves, so search goes down.",
+    },
+    {
+      label: "5) Reach Detour Row",
+      current: { x: 2, y: 5 },
+      closed: [{ x: 1, y: 1 }, { x: 2, y: 1 }, { x: 2, y: 2 }, { x: 2, y: 3 }, { x: 2, y: 4 }],
+      open: [{ x: 1, y: 5 }, { x: 3, y: 5 }],
+      showPathLen: 0,
+      caption: "A*: Search reaches the gap and can now route around obstacles.",
+    },
+    {
+      label: "6) Turn Toward Goal",
+      current: { x: 4, y: 5 },
+      closed: [{ x: 1, y: 1 }, { x: 2, y: 1 }, { x: 2, y: 2 }, { x: 2, y: 3 }, { x: 2, y: 4 }, { x: 2, y: 5 }, { x: 3, y: 5 }],
+      open: [{ x: 4, y: 6 }, { x: 5, y: 6 }],
+      showPathLen: 0,
+      caption: "A*: Best frontier shifts diagonally toward the goal region.",
+    },
+    {
+      label: "7) Goal Reached",
+      current: { x: 8, y: 7 },
+      closed: [{ x: 1, y: 1 }, { x: 2, y: 1 }, { x: 2, y: 2 }, { x: 2, y: 3 }, { x: 2, y: 4 }, { x: 2, y: 5 }, { x: 3, y: 5 }, { x: 4, y: 5 }, { x: 4, y: 6 }, { x: 5, y: 6 }, { x: 6, y: 6 }, { x: 7, y: 6 }, { x: 8, y: 6 }],
+      open: [{ x: 7, y: 7 }],
+      showPathLen: 0,
+      caption: "A*: Goal dequeued from open set. Stop searching.",
+    },
+    {
+      label: "8) Reconstruct Path",
+      current: { x: 8, y: 7 },
+      closed: [{ x: 1, y: 1 }, { x: 2, y: 1 }, { x: 2, y: 2 }, { x: 2, y: 3 }, { x: 2, y: 4 }, { x: 2, y: 5 }, { x: 3, y: 5 }, { x: 4, y: 5 }, { x: 4, y: 6 }, { x: 5, y: 6 }, { x: 6, y: 6 }, { x: 7, y: 6 }, { x: 8, y: 6 }],
+      open: [],
+      showPathLen: astarPath.length,
+      caption: "A*: Follow parent pointers backward to produce final shortest path.",
+    },
+  ];
+  const reservationStages = [
+    {
+      label: "1) Agent A planned first",
+      aPos: { x: 2, y: 4 },
+      bPos: { x: 2, y: 6 },
+      reserved: [{ x: 3, y: 4 }, { x: 4, y: 4 }, { x: 5, y: 4 }],
+      bPreview: [{ x: 2, y: 6 }, { x: 3, y: 5 }, { x: 4, y: 4 }, { x: 5, y: 4 }, { x: 6, y: 4 }],
+      reroute: [],
+      caption: "WHCA*: Agent A reserves a short time window on row y=4.",
+    },
+    {
+      label: "2) Agent B checks reservations",
+      aPos: { x: 3, y: 4 },
+      bPos: { x: 3, y: 5 },
+      reserved: [{ x: 3, y: 4 }, { x: 4, y: 4 }, { x: 5, y: 4 }],
+      bPreview: [{ x: 2, y: 6 }, { x: 3, y: 5 }, { x: 4, y: 4 }, { x: 5, y: 4 }, { x: 6, y: 4 }],
+      reroute: [],
+      caption: "Agent B's shortest route intersects reserved cells (orange).",
+    },
+    {
+      label: "3) Reservation-aware reroute",
+      aPos: { x: 4, y: 4 },
+      bPos: { x: 3, y: 6 },
+      reserved: [{ x: 4, y: 4 }, { x: 5, y: 4 }, { x: 6, y: 4 }],
+      bPreview: [{ x: 2, y: 6 }, { x: 3, y: 5 }, { x: 4, y: 4 }, { x: 5, y: 4 }, { x: 6, y: 4 }],
+      reroute: [{ x: 2, y: 6 }, { x: 3, y: 6 }, { x: 4, y: 6 }, { x: 5, y: 5 }, { x: 6, y: 4 }],
+      caption: "B is replanned through free-time cells instead of reserved row y=4.",
+    },
+    {
+      label: "4) Conflict avoided",
+      aPos: { x: 5, y: 4 },
+      bPos: { x: 5, y: 5 },
+      reserved: [{ x: 5, y: 4 }, { x: 6, y: 4 }, { x: 7, y: 4 }],
+      bPreview: [],
+      reroute: [{ x: 2, y: 6 }, { x: 3, y: 6 }, { x: 4, y: 6 }, { x: 5, y: 5 }, { x: 6, y: 4 }],
+      caption: "Result: both agents progress without a same-time vertex conflict.",
+    },
+  ];
+
+  const edgeSwapStages = [
+    {
+      label: "1) Opposite intents",
+      aFrom: { x: 4, y: 4 }, aTo: { x: 5, y: 4 },
+      bFrom: { x: 5, y: 4 }, bTo: { x: 4, y: 4 },
+      resolved: null,
+      caption: "Two agents intend to swap edges in the same timestep.",
+    },
+    {
+      label: "2) Detect swap conflict",
+      aFrom: { x: 4, y: 4 }, aTo: { x: 5, y: 4 },
+      bFrom: { x: 5, y: 4 }, bTo: { x: 4, y: 4 },
+      resolved: null,
+      caption: "Edge-swap conflict detected: A->B and B->A are mutually unsafe.",
+    },
+    {
+      label: "3) Priority resolve",
+      aFrom: { x: 4, y: 4 }, aTo: { x: 5, y: 4 },
+      bFrom: { x: 5, y: 4 }, bTo: { x: 5, y: 4 },
+      resolved: "B waits",
+      caption: "Sanitization: lower-priority agent waits; higher-priority move proceeds.",
+    },
+    {
+      label: "4) Next timestep",
+      aFrom: { x: 5, y: 4 }, aTo: { x: 6, y: 4 },
+      bFrom: { x: 5, y: 4 }, bTo: { x: 4, y: 4 },
+      resolved: "Safe progression",
+      caption: "After one wait, both can continue without edge swap collision.",
+    },
+  ];
+
+  const assignmentStages = [
+    {
+      label: "1) Build cost matrix",
+      matrix: [
+        [2, 5, 6],
+        [4, 1, 3],
+        [5, 4, 2],
+      ],
+      chosen: [],
+      caption: "Hungarian setup: Manhattan distances form robot->shelf cost matrix.",
+    },
+    {
+      label: "2) Solve matching",
+      matrix: [
+        [2, 5, 6],
+        [4, 1, 3],
+        [5, 4, 2],
+      ],
+      chosen: [[0, 0], [1, 1], [2, 2]],
+      caption: "Hungarian algorithm chooses minimum total cost assignment.",
+    },
+    {
+      label: "3) Commit assignments",
+      matrix: [
+        [2, 5, 6],
+        [4, 1, 3],
+        [5, 4, 2],
+      ],
+      chosen: [[0, 0], [1, 1], [2, 2]],
+      caption: "Assignments become planner targets: R1->S1, R2->S2, R3->S3.",
+    },
   ];
 
   // Conflict-resolution demo: two agents fetching shelves
@@ -904,18 +1080,103 @@ if (algoCanvas) {
   }
 
   function drawAStar() {
-    astarWalls.forEach((w) => drawCell(w, "#26323c"));
+    const stage = astarSearchStages[tick % astarSearchStages.length];
+
+    function manhattan(a, b) {
+      return Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
+    }
+
+    // Obstacles
+    astarWalls.forEach((w) => drawCell(w, "#24313d"));
+
+    // Closed and open set overlays
+    stage.closed.forEach((p) => drawCell(p, "rgba(124,77,255,0.35)"));
+    stage.open.forEach((p) => drawCell(p, "rgba(79,195,247,0.45)"));
+
+    // Final path (shown only in reconstruction stage)
+    if (stage.showPathLen > 0) {
+      astarPath.slice(0, stage.showPathLen).forEach((p) => drawCell(p, "rgba(255,200,100,0.75)"));
+    }
+
+    // Start/goal + current node
     drawCell(astarStart, "#66bb6a");
     drawCell(astarGoal, "#ffd166");
+    drawCell(stage.current, "#ff8a65");
 
-    const frontierCount = Math.min(tick + 2, astarPath.length);
-    for (let i = 0; i < frontierCount; i++) {
-      drawCell(astarPath[i], "rgba(79,195,247,0.8)");
+    // Draw f = g + h hints for up to 3 open nodes
+    const hintNodes = stage.open.slice(0, 3);
+    hintNodes.forEach((node) => {
+      const p = toCell(node.x, node.y);
+      const g = manhattan(astarStart, node);
+      const h = manhattan(node, astarGoal);
+      const f = g + h;
+      ctx.fillStyle = "rgba(255,255,255,0.85)";
+      ctx.font = `${Math.max(9, Math.floor(cell * 0.22))}px monospace`;
+      ctx.textAlign = "left";
+      ctx.textBaseline = "top";
+      ctx.fillText(`f${f}`, p.x + 4, p.y + 3);
+    });
+
+    // Labels on start/goal/current
+    [
+      { pos: astarStart, txt: "S", color: "#0f1318" },
+      { pos: astarGoal, txt: "G", color: "#0f1318" },
+      { pos: stage.current, txt: "C", color: "#0f1318" },
+    ].forEach((item) => {
+      const p = toCell(item.pos.x, item.pos.y);
+      ctx.fillStyle = item.color;
+      ctx.font = `bold ${Math.max(10, Math.floor(cell * 0.35))}px monospace`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(item.txt, p.x + cell / 2, p.y + cell / 2);
+    });
+
+    // Compact legend panel (placed outside the grid area when possible)
+    const legendW = Math.min(Math.max(190, cell * 6.6), Math.max(190, canvasWidth - 24));
+    const legendH = 104;
+    let legendX = offsetX + 6;
+    let legendY = offsetY - legendH - 8; // preferred: above grid
+
+    // Fallback 1: below grid if above is not available
+    if (legendY < 8) {
+      legendY = offsetY + grid * cell + 8;
     }
-    if (frontierCount >= astarPath.length) {
-      astarPath.forEach((p) => drawCell(p, "rgba(255,200,100,0.7)"));
+    // Fallback 2: right of grid if below also doesn't fit
+    if (legendY + legendH > canvasHeight - 8) {
+      legendX = offsetX + grid * cell + 8;
+      legendY = offsetY + 6;
     }
-    algoCaption.textContent = "A*: frontier expansion (blue) and final path (amber) under space-time constraints.";
+    // Final clamp to viewport bounds
+    legendX = Math.max(8, Math.min(legendX, canvasWidth - legendW - 8));
+    legendY = Math.max(8, Math.min(legendY, canvasHeight - legendH - 8));
+
+    ctx.fillStyle = "rgba(12,18,27,0.86)";
+    ctx.fillRect(legendX, legendY, legendW, legendH);
+    ctx.strokeStyle = "rgba(255,255,255,0.16)";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(legendX, legendY, legendW, legendH);
+
+    const legendItems = [
+      ["#ff8a65", "Current"],
+      ["rgba(79,195,247,0.65)", "Open Set"],
+      ["rgba(124,77,255,0.65)", "Closed Set"],
+      ["rgba(255,200,100,0.9)", "Final Path"],
+    ];
+    legendItems.forEach((entry, i) => {
+      const y = legendY + 27 + i * 18;
+      ctx.fillStyle = entry[0];
+      ctx.fillRect(legendX + 10, y - 9, 12, 12);
+      ctx.fillStyle = "rgba(255,255,255,0.92)";
+      ctx.font = "11px monospace";
+      ctx.textAlign = "left";
+      ctx.textBaseline = "middle";
+      ctx.fillText(entry[1], legendX + 28, y - 2);
+    });
+    ctx.fillStyle = "rgba(255,255,255,0.96)";
+    ctx.font = "bold 12px monospace";
+    ctx.fillText(stage.label, legendX + 10, legendY + 14);
+
+    algoCaption.textContent = stage.caption;
   }
 
   function drawPrioritized() {
@@ -1113,6 +1374,208 @@ if (algoCanvas) {
         algoCaption.textContent = "Cooperative planner phase 2: conflict resolved and both agents reach goals safely.";
       }
     }
+  }
+
+  function drawReservation() {
+    const stage = reservationStages[tick % reservationStages.length];
+
+    // Reserved time-window cells
+    stage.reserved.forEach((p) => drawCell(p, "rgba(255,152,0,0.55)"));
+
+    // Naive B route (shows blocked intention)
+    stage.bPreview.forEach((p) => drawCell(p, "rgba(239,83,80,0.20)"));
+
+    // Rerouted B route
+    stage.reroute.forEach((p) => drawCell(p, "rgba(102,187,106,0.32)"));
+
+    // Agent A
+    const pA = toCell(stage.aPos.x, stage.aPos.y);
+    ctx.fillStyle = "#f08c3a";
+    ctx.beginPath();
+    ctx.arc(pA.x + cell/2, pA.y + cell/2, getAgentRadius(), 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#fff";
+    ctx.font = "bold 13px monospace";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("A", pA.x + cell/2, pA.y + cell/2);
+
+    // Agent B
+    const pB = toCell(stage.bPos.x, stage.bPos.y);
+    ctx.fillStyle = "#4fc3f7";
+    ctx.beginPath();
+    ctx.arc(pB.x + cell/2, pB.y + cell/2, getAgentRadius(), 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#fff";
+    ctx.fillText("B", pB.x + cell/2, pB.y + cell/2);
+
+    // Legend
+    ctx.fillStyle = "rgba(12,18,27,0.84)";
+    ctx.fillRect(offsetX + 8, offsetY + 8, Math.min(270, cell * 7.4), 88);
+    ctx.strokeStyle = "rgba(255,255,255,0.15)";
+    ctx.strokeRect(offsetX + 8, offsetY + 8, Math.min(270, cell * 7.4), 88);
+    const items = [
+      ["rgba(255,152,0,0.85)", "Reserved window"],
+      ["rgba(239,83,80,0.85)", "Blocked naive route"],
+      ["rgba(102,187,106,0.85)", "Replanned route"],
+    ];
+    items.forEach((entry, i) => {
+      const y = offsetY + 28 + i * 20;
+      ctx.fillStyle = entry[0];
+      ctx.fillRect(offsetX + 18, y - 8, 12, 12);
+      ctx.fillStyle = "rgba(255,255,255,0.92)";
+      ctx.font = "11px monospace";
+      ctx.textAlign = "left";
+      ctx.textBaseline = "middle";
+      ctx.fillText(entry[1], offsetX + 36, y - 1);
+    });
+
+    algoCaption.textContent = stage.caption;
+  }
+
+  function drawEdgeSwap() {
+    const stage = edgeSwapStages[tick % edgeSwapStages.length];
+    const aFrom = toCell(stage.aFrom.x, stage.aFrom.y);
+    const aTo = toCell(stage.aTo.x, stage.aTo.y);
+    const bFrom = toCell(stage.bFrom.x, stage.bFrom.y);
+    const bTo = toCell(stage.bTo.x, stage.bTo.y);
+
+    function drawArrow(fromCell, toCell, color) {
+      const x1 = fromCell.x + cell/2;
+      const y1 = fromCell.y + cell/2;
+      const x2 = toCell.x + cell/2;
+      const y2 = toCell.y + cell/2;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
+      const ang = Math.atan2(y2 - y1, x2 - x1);
+      const ah = Math.max(6, cell * 0.2);
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.moveTo(x2, y2);
+      ctx.lineTo(x2 - ah * Math.cos(ang - 0.35), y2 - ah * Math.sin(ang - 0.35));
+      ctx.lineTo(x2 - ah * Math.cos(ang + 0.35), y2 - ah * Math.sin(ang + 0.35));
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    // Conflict highlight between swap cells
+    drawCell(stage.aFrom, "rgba(239,83,80,0.22)");
+    drawCell({ x: stage.aTo.x, y: stage.aTo.y }, "rgba(239,83,80,0.22)");
+    drawArrow(aFrom, aTo, "#f08c3a");
+    drawArrow(bFrom, bTo, "#4fc3f7");
+
+    // Agent markers
+    [
+      { p: aFrom, c: "#f08c3a", id: "A" },
+      { p: bFrom, c: "#4fc3f7", id: "B" },
+    ].forEach((agent) => {
+      ctx.fillStyle = agent.c;
+      ctx.beginPath();
+      ctx.arc(agent.p.x + cell/2, agent.p.y + cell/2, getAgentRadius(), 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#fff";
+      ctx.font = "bold 13px monospace";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(agent.id, agent.p.x + cell/2, agent.p.y + cell/2);
+    });
+
+    // Status strip
+    ctx.fillStyle = "rgba(12,18,27,0.86)";
+    ctx.fillRect(offsetX + 8, offsetY + 8, Math.min(300, cell * 8), 34);
+    ctx.strokeStyle = "rgba(255,255,255,0.15)";
+    ctx.strokeRect(offsetX + 8, offsetY + 8, Math.min(300, cell * 8), 34);
+    ctx.fillStyle = stage.resolved ? "#81c784" : "#ef9a9a";
+    ctx.font = "bold 12px monospace";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    const status = stage.resolved ? `Resolve: ${stage.resolved}` : "Detecting edge-swap conflict";
+    ctx.fillText(`${stage.label} | ${status}`, offsetX + 14, offsetY + 25);
+
+    algoCaption.textContent = stage.caption;
+  }
+
+  function drawAssignment() {
+    const stage = assignmentStages[tick % assignmentStages.length];
+
+    const robots = [{ x: 1, y: 2, id: "R1" }, { x: 1, y: 5, id: "R2" }, { x: 1, y: 8, id: "R3" }];
+    const shelves = [{ x: 8, y: 2, id: "S1" }, { x: 8, y: 5, id: "S2" }, { x: 8, y: 8, id: "S3" }];
+
+    robots.forEach((r) => {
+      const p = toCell(r.x, r.y);
+      ctx.fillStyle = "#4fc3f7";
+      ctx.beginPath();
+      ctx.arc(p.x + cell/2, p.y + cell/2, getAgentRadius(), 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#fff";
+      ctx.font = "bold 11px monospace";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(r.id, p.x + cell/2, p.y + cell/2);
+    });
+
+    shelves.forEach((s) => {
+      const p = toCell(s.x, s.y);
+      ctx.fillStyle = "#66bb6a";
+      ctx.fillRect(p.x + 4, p.y + 4, cell - 8, cell - 8);
+      ctx.fillStyle = "#fff";
+      ctx.font = "bold 11px monospace";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(s.id, p.x + cell/2, p.y + cell/2);
+    });
+
+    // Draw selected assignments as lines
+    stage.chosen.forEach(([ri, si]) => {
+      const pr = toCell(robots[ri].x, robots[ri].y);
+      const ps = toCell(shelves[si].x, shelves[si].y);
+      ctx.strokeStyle = "#ffd166";
+      ctx.lineWidth = 2.8;
+      ctx.beginPath();
+      ctx.moveTo(pr.x + cell/2, pr.y + cell/2);
+      ctx.lineTo(ps.x + cell/2, ps.y + cell/2);
+      ctx.stroke();
+    });
+
+    // Matrix panel
+    const panelW = Math.min(240, cell * 6.7);
+    const panelH = 132;
+    const panelX = Math.max(offsetX + 6, offsetX + grid * cell - panelW - 6);
+    const panelY = offsetY + 6;
+    ctx.fillStyle = "rgba(12,18,27,0.88)";
+    ctx.fillRect(panelX, panelY, panelW, panelH);
+    ctx.strokeStyle = "rgba(255,255,255,0.15)";
+    ctx.strokeRect(panelX, panelY, panelW, panelH);
+    ctx.fillStyle = "rgba(255,255,255,0.95)";
+    ctx.font = "bold 12px monospace";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
+    ctx.fillText(stage.label, panelX + 10, panelY + 8);
+    ctx.font = "11px monospace";
+    const cellW = 36;
+    const startX = panelX + 48;
+    const startY = panelY + 32;
+
+    ["S1", "S2", "S3"].forEach((h, j) => ctx.fillText(h, startX + j * cellW + 10, startY - 16));
+    ["R1", "R2", "R3"].forEach((h, i) => ctx.fillText(h, startX - 24, startY + i * 24 + 4));
+
+    stage.matrix.forEach((row, i) => {
+      row.forEach((val, j) => {
+        const isChosen = stage.chosen.some(([ri, sj]) => ri === i && sj === j);
+        if (isChosen) {
+          ctx.fillStyle = "rgba(255,209,102,0.35)";
+          ctx.fillRect(startX + j * cellW - 4, startY + i * 24 - 2, 28, 18);
+        }
+        ctx.fillStyle = "rgba(255,255,255,0.92)";
+        ctx.fillText(String(val), startX + j * cellW + 4, startY + i * 24 + 2);
+      });
+    });
+
+    algoCaption.textContent = stage.caption;
   }
 
   function drawSymmetry() {
@@ -1342,6 +1805,94 @@ if (algoCanvas) {
     },
   ];
 
+  quotientKeyScenarios = [
+    {
+      title: "Raw Labeled State",
+      leftLabel: "State A",
+      rightLabel: "State B (same roles, swapped labels)",
+      rawA: "[(A:2,3,UP,idle),(B:6,5,DOWN,idle),(C:4,2,RIGHT,idle)]",
+      rawB: "[(A:4,2,RIGHT,idle),(B:2,3,UP,idle),(C:6,5,DOWN,idle)]",
+      keyA: "canonical(A)=((2,3,0,0),(4,2,1,0),(6,5,2,0))",
+      keyB: "canonical(B)=((2,3,0,0),(4,2,1,0),(6,5,2,0))",
+      equal: true,
+      caption: "Different labels, same role orbit permutation -> identical quotient key.",
+    },
+    {
+      title: "Role-Different State",
+      leftLabel: "State C",
+      rightLabel: "State D (role changed)",
+      rawA: "[(A:2,3,UP,idle),(B:6,5,DOWN,carry_req)]",
+      rawB: "[(A:2,3,UP,carry_req),(B:6,5,DOWN,idle)]",
+      keyA: "canonical(C)=(((2,3,0,0),),((6,5,2,1),))",
+      keyB: "canonical(D)=(((2,3,0,1),),((6,5,2,0),))",
+      equal: false,
+      caption: "Role change alters orbit partition -> quotient keys are different.",
+    },
+  ];
+
+  verifyRefineLoopScenarios = [
+    {
+      phase: "Step 1 - Verify",
+      safe: false,
+      agents: [
+        { x: 2, y: 6, id: "A", color: "#4fc3f7" },
+        { x: 6, y: 2, id: "B", color: "#ab47bc" },
+      ],
+      pathA: [{ x: 2, y: 6 }, { x: 3, y: 5 }, { x: 4, y: 4 }, { x: 5, y: 3 }],
+      pathB: [{ x: 6, y: 2 }, { x: 5, y: 3 }, { x: 4, y: 4 }, { x: 3, y: 5 }],
+      conflict: { type: "vertex", x: 4, y: 4 },
+      caption: "Step 1 (Verify): Planned trajectories collide at (4,4), so the run is UNSAFE.",
+    },
+    {
+      phase: "Step 2 - Extract Conflict",
+      safe: false,
+      agents: [
+        { x: 2, y: 6, id: "A", color: "#4fc3f7" },
+        { x: 6, y: 2, id: "B", color: "#ab47bc" },
+      ],
+      pathA: [{ x: 2, y: 6 }, { x: 3, y: 5 }, { x: 4, y: 4 }, { x: 5, y: 3 }],
+      pathB: [{ x: 6, y: 2 }, { x: 5, y: 3 }, { x: 4, y: 4 }, { x: 3, y: 5 }],
+      conflict: { type: "vertex", x: 4, y: 4, label: "conflict: vertex@t=2" },
+      caption: "Step 2 (Extract): Counterexample trace yields a vertex conflict for refinement.",
+    },
+    {
+      phase: "Step 3 - Add Constraint",
+      safe: false,
+      agents: [
+        { x: 2, y: 6, id: "A", color: "#4fc3f7" },
+        { x: 6, y: 2, id: "B", color: "#ab47bc" },
+      ],
+      pathA: [{ x: 2, y: 6 }, { x: 3, y: 5 }, { x: 4, y: 4 }, { x: 5, y: 3 }],
+      pathB: [{ x: 6, y: 2 }, { x: 5, y: 3 }, { x: 4, y: 4 }, { x: 3, y: 5 }],
+      constraint: { x: 4, y: 4, t: 3, label: "forbid (4,4,t=3)" },
+      caption: "Step 3 (Refine): Add hard planner constraint to block the unsafe space-time cell.",
+    },
+    {
+      phase: "Step 4 - Replan",
+      safe: true,
+      agents: [
+        { x: 2, y: 6, id: "A", color: "#4fc3f7" },
+        { x: 6, y: 2, id: "B", color: "#ab47bc" },
+      ],
+      pathA: [{ x: 2, y: 6 }, { x: 3, y: 5 }, { x: 3, y: 4 }, { x: 4, y: 3 }, { x: 5, y: 3 }],
+      pathB: [{ x: 6, y: 2 }, { x: 5, y: 3 }, { x: 5, y: 4 }, { x: 4, y: 5 }, { x: 3, y: 5 }],
+      constraint: { x: 4, y: 4, t: 3, label: "forbid (4,4,t=3)" },
+      caption: "Step 4 (Replan): Planner reroutes both agents to satisfy the injected constraint.",
+    },
+    {
+      phase: "Step 5 - Re-Verify",
+      safe: true,
+      agents: [
+        { x: 5, y: 3, id: "A", color: "#4fc3f7" },
+        { x: 3, y: 5, id: "B", color: "#ab47bc" },
+      ],
+      pathA: [{ x: 2, y: 6 }, { x: 3, y: 5 }, { x: 3, y: 4 }, { x: 4, y: 3 }, { x: 5, y: 3 }],
+      pathB: [{ x: 6, y: 2 }, { x: 5, y: 3 }, { x: 5, y: 4 }, { x: 4, y: 5 }, { x: 3, y: 5 }],
+      constraint: { x: 4, y: 4, t: 3, label: "forbid (4,4,t=3)" },
+      caption: "Step 5 (Re-Verify): No collisions under the new constraints. Status turns SAFE.",
+    },
+  ];
+
   function drawQuotientComparison() {
     const scenarioIndex = tick % quotientComparisonScenarios.length;
     const scenario = quotientComparisonScenarios[scenarioIndex];
@@ -1495,6 +2046,12 @@ if (algoCanvas) {
       drawAStar();
     } else if (algoMode === "prioritized") {
       drawPrioritized();
+    } else if (algoMode === "reservation") {
+      drawReservation();
+    } else if (algoMode === "edge-swap") {
+      drawEdgeSwap();
+    } else if (algoMode === "assignment") {
+      drawAssignment();
     } else if (algoMode === "symmetry") {
       drawSymmetry();
     } else if (algoMode === "quotient") {
@@ -1511,7 +2068,11 @@ if (algoCanvas) {
     const elapsed = ts - lastAlgoTick;
     
     // Different timing for different algorithms
-    const delay = algoMode === "symmetry" ? 6000 : 
+    const delay = algoMode === "astar" ? 1200 :
+                  algoMode === "reservation" ? 2200 :
+                  algoMode === "edge-swap" ? 2100 :
+                  algoMode === "assignment" ? 2300 :
+                  algoMode === "symmetry" ? 6000 : 
                   (algoMode === "prioritized" ? 3000 : 
                   (algoMode === "quotient" ? 3500 : 
                   (algoMode === "verification" ? 3000 : 
@@ -1520,7 +2081,11 @@ if (algoCanvas) {
     if (algoPlaying && elapsed > delay) {
       // Different tick limits for different algorithms
       let maxTick = 10;
+      if (algoMode === "astar") maxTick = astarSearchStages.length;
       if (algoMode === "prioritized") maxTick = 16;
+      if (algoMode === "reservation") maxTick = reservationStages.length;
+      if (algoMode === "edge-swap") maxTick = edgeSwapStages.length;
+      if (algoMode === "assignment") maxTick = assignmentStages.length;
       if (algoMode === "symmetry") maxTick = symmetryScenarios.length;
       if (algoMode === "quotient") maxTick = quotientComparisonScenarios.length;
       if (algoMode === "verification") maxTick = verificationScenarios.length;
@@ -1544,9 +2109,15 @@ if (algoCanvas) {
       // Update caption immediately on mode change
       if (algoCaption) {
         if (algoMode === "astar") {
-          algoCaption.textContent = "A*: frontier expansion (blue) and final path (amber) under space-time constraints.";
+          algoCaption.textContent = astarSearchStages[0].caption;
         } else if (algoMode === "prioritized") {
           algoCaption.textContent = "Cooperative planner phase 1: independent plans before reservation and constraint handling.";
+        } else if (algoMode === "reservation") {
+          algoCaption.textContent = reservationStages[0].caption;
+        } else if (algoMode === "edge-swap") {
+          algoCaption.textContent = edgeSwapStages[0].caption;
+        } else if (algoMode === "assignment") {
+          algoCaption.textContent = assignmentStages[0].caption;
         } else if (algoMode === "symmetry") {
           algoCaption.textContent = symmetryScenarios[0].caption;
         } else if (algoMode === "quotient") {
@@ -1561,7 +2132,18 @@ if (algoCanvas) {
     });
   });
 
+  if (algoPauseButton) {
+    algoPauseButton.addEventListener("click", () => {
+      algoPlaying = !algoPlaying;
+      if (algoPlaying) {
+        lastAlgoTick = performance.now();
+      }
+      syncAlgoPauseButton();
+    });
+  }
+
   // Initialize with first render
+  syncAlgoPauseButton();
   renderAlgo();
   requestAnimationFrame(algoTick);
 }
@@ -1571,8 +2153,9 @@ const symmetryCanvas = document.getElementById("symmetryCanvas");
 const symmetryCaption = document.getElementById("symmetryCaption");
 const symmetrySection = document.getElementById("symmetry");
 const symmetryButtons = symmetrySection
-  ? symmetrySection.querySelectorAll("[data-algo='symmetry'], [data-algo='quotient']")
+  ? symmetrySection.querySelectorAll("[data-algo='symmetry'], [data-algo='quotient'], [data-algo='quotient-key']")
   : [];
+const symmetryPauseButton = symmetrySection ? symmetrySection.querySelector("[data-control='symmetry-pause']") : null;
 const symmetrySurface = symmetryCanvas ? createHiResCanvas(symmetryCanvas) : null;
 
 console.log('symmetryCanvas:', symmetryCanvas, 'symmetryCaption:', symmetryCaption);
@@ -1588,7 +2171,15 @@ if (symmetryCanvas) {
   let soffsetY = 0;
   let sMode = "symmetry";
   let sTickCount = 0;
+  let sPlaying = true;
   let sLastTick = 0;
+
+  function syncSymmetryPauseButton() {
+    if (!symmetryPauseButton) return;
+    symmetryPauseButton.textContent = sPlaying ? "Pause" : "Resume";
+    symmetryPauseButton.classList.toggle("is-paused", !sPlaying);
+    symmetryPauseButton.setAttribute("aria-pressed", String(!sPlaying));
+  }
 
   function updateSymmetryLayout() {
     const size = symmetrySurface.resize();
@@ -1780,6 +2371,70 @@ if (symmetryCanvas) {
       symmetryCaption.textContent = scenario.caption;
     }
   }
+
+  function sRenderQuotientKey() {
+    sctx.clearRect(0, 0, sWidth, sHeight);
+    sctx.fillStyle = "#0f1318";
+    sctx.fillRect(0, 0, sWidth, sHeight);
+
+    const scenario = quotientKeyScenarios[sTickCount % quotientKeyScenarios.length];
+    const pad = 18;
+    const colGap = 14;
+    const boxW = Math.floor((sWidth - pad * 2 - colGap) / 2);
+    const boxH = Math.min(170, Math.floor(sHeight * 0.45));
+    const topY = 24;
+
+    function drawBox(x, y, w, h, title, raw, key) {
+      sctx.fillStyle = "rgba(12,18,27,0.9)";
+      sctx.fillRect(x, y, w, h);
+      sctx.strokeStyle = "rgba(255,255,255,0.16)";
+      sctx.strokeRect(x, y, w, h);
+      sctx.fillStyle = "rgba(255,255,255,0.95)";
+      sctx.font = "bold 12px monospace";
+      sctx.textAlign = "left";
+      sctx.textBaseline = "top";
+      sctx.fillText(title, x + 10, y + 8);
+
+      sctx.fillStyle = "rgba(200,215,255,0.92)";
+      sctx.font = "11px monospace";
+      sctx.fillText("raw:", x + 10, y + 30);
+      sctx.fillStyle = "rgba(255,255,255,0.82)";
+      sctx.fillText(raw, x + 10, y + 46, w - 20);
+
+      sctx.fillStyle = "rgba(255,222,130,0.96)";
+      sctx.fillText("canonical key:", x + 10, y + 82);
+      sctx.fillStyle = "rgba(255,255,255,0.90)";
+      sctx.fillText(key, x + 10, y + 98, w - 20);
+    }
+
+    drawBox(pad, topY, boxW, boxH, scenario.leftLabel, scenario.rawA, scenario.keyA);
+    drawBox(pad + boxW + colGap, topY, boxW, boxH, scenario.rightLabel, scenario.rawB, scenario.keyB);
+
+    // Equality verdict strip
+    const verdictY = topY + boxH + 16;
+    const verdictW = Math.min(sWidth - 2 * pad, 620);
+    const verdictX = (sWidth - verdictW) / 2;
+    sctx.fillStyle = scenario.equal ? "rgba(102,187,106,0.2)" : "rgba(239,83,80,0.2)";
+    sctx.fillRect(verdictX, verdictY, verdictW, 44);
+    sctx.strokeStyle = scenario.equal ? "#66bb6a" : "#ef5350";
+    sctx.lineWidth = 2;
+    sctx.strokeRect(verdictX, verdictY, verdictW, 44);
+    sctx.fillStyle = scenario.equal ? "#81c784" : "#ef9a9a";
+    sctx.font = "bold 14px monospace";
+    sctx.textAlign = "center";
+    sctx.textBaseline = "middle";
+    sctx.fillText(scenario.equal ? "quotient(A) == quotient(B)" : "quotient(C) != quotient(D)", sWidth / 2, verdictY + 22);
+
+    sctx.fillStyle = "rgba(255,255,255,0.88)";
+    sctx.font = "bold 13px monospace";
+    sctx.textAlign = "center";
+    sctx.textBaseline = "top";
+    sctx.fillText(scenario.title, sWidth / 2, 6);
+
+    if (symmetryCaption) {
+      symmetryCaption.textContent = scenario.caption;
+    }
+  }
   
   function sRender() {
     const size = updateSymmetryLayout();
@@ -1790,6 +2445,8 @@ if (symmetryCanvas) {
       sRenderSymmetry();
     } else if (sMode === "quotient") {
       sRenderQuotient();
+    } else if (sMode === "quotient-key") {
+      sRenderQuotientKey();
     }
   }
   
@@ -1797,10 +2454,12 @@ if (symmetryCanvas) {
     if (!sLastTick) sLastTick = ts;
     const elapsed = ts - sLastTick;
     
-    const delay = sMode === "symmetry" ? 6000 : 3500;
+    const delay = sMode === "symmetry" ? 6000 : (sMode === "quotient-key" ? 4200 : 3500);
     
-    if (elapsed > delay) {
-      const maxTick = sMode === "symmetry" ? symmetryScenarios.length : quotientComparisonScenarios.length;
+    if (sPlaying && elapsed > delay) {
+      let maxTick = quotientComparisonScenarios.length;
+      if (sMode === "symmetry") maxTick = symmetryScenarios.length;
+      if (sMode === "quotient-key") maxTick = quotientKeyScenarios.length;
       sTickCount = (sTickCount + 1) % maxTick;
       sLastTick = ts;
     }
@@ -1817,7 +2476,18 @@ if (symmetryCanvas) {
       sRender();
     });
   });
+
+  if (symmetryPauseButton) {
+    symmetryPauseButton.addEventListener("click", () => {
+      sPlaying = !sPlaying;
+      if (sPlaying) {
+        sLastTick = performance.now();
+      }
+      syncSymmetryPauseButton();
+    });
+  }
   
+  syncSymmetryPauseButton();
   sRender();
   requestAnimationFrame(sAnimationLoop);
 }
@@ -1827,8 +2497,9 @@ const verifyCanvas = document.getElementById("verifyCanvas");
 const verifyCaption = document.getElementById("verifyCaption");
 const verifySection = document.getElementById("verification");
 const verifyButtons = verifySection
-  ? verifySection.querySelectorAll("[data-algo='verification'], [data-algo='refinement']")
+  ? verifySection.querySelectorAll("[data-algo='verification'], [data-algo='verify-refine-loop']")
   : [];
+const verifyPauseButton = verifySection ? verifySection.querySelector("[data-control='verify-pause']") : null;
 const verifySurface = verifyCanvas ? createHiResCanvas(verifyCanvas) : null;
 
 console.log('verifyCanvas:', verifyCanvas, 'verifyCaption:', verifyCaption);
@@ -1853,8 +2524,17 @@ if (verifyCanvas) {
   let vMode = "verification";
   let vTickCount = 0;
   let vLastTick = 0;
+  let vPlaying = true;
   let vTime = 0;
   let vScenarioStart = 0;
+  let vPausedScenarioElapsed = 0;
+
+  function syncVerifyPauseButton() {
+    if (!verifyPauseButton) return;
+    verifyPauseButton.textContent = vPlaying ? "Pause" : "Resume";
+    verifyPauseButton.classList.toggle("is-paused", !vPlaying);
+    verifyPauseButton.setAttribute("aria-pressed", String(!vPlaying));
+  }
 
   function updateVerifyLayout() {
     const size = verifySurface.resize();
@@ -2046,6 +2726,120 @@ if (verifyCanvas) {
       verifyCaption.textContent = scenario.caption;
     }
   }
+
+  function vRenderVerifyRefineLoop() {
+    vctx.clearRect(0, 0, vWidth, vHeight);
+    vctx.fillStyle = "#0f1318";
+    vctx.fillRect(0, 0, vWidth, vHeight);
+
+    vDrawGrid();
+
+    const scenarioIndex = vTickCount % verifyRefineLoopScenarios.length;
+    const scenario = verifyRefineLoopScenarios[scenarioIndex];
+
+    function drawPath(path, color) {
+      if (!path || path.length < 2) return;
+      vctx.strokeStyle = color;
+      vctx.lineWidth = Math.max(2, vcell * 0.11);
+      vctx.lineCap = "round";
+      vctx.lineJoin = "round";
+      vctx.beginPath();
+      path.forEach((pt, i) => {
+        const p = vToCell(pt.x, pt.y);
+        const cx = p.x + vcell / 2;
+        const cy = p.y + vcell / 2;
+        if (i === 0) vctx.moveTo(cx, cy);
+        else vctx.lineTo(cx, cy);
+      });
+      vctx.stroke();
+    }
+
+    drawPath(scenario.pathA, "rgba(79,195,247,0.72)");
+    drawPath(scenario.pathB, "rgba(171,71,188,0.72)");
+
+    if (scenario.constraint) {
+      const cp = vToCell(scenario.constraint.x, scenario.constraint.y);
+      vctx.fillStyle = "rgba(255,152,0,0.14)";
+      vctx.fillRect(cp.x + 2, cp.y + 2, vcell - 4, vcell - 4);
+      vctx.strokeStyle = "#ffb74d";
+      vctx.lineWidth = 2.4;
+      vctx.setLineDash([6, 4]);
+      vctx.strokeRect(cp.x + 2, cp.y + 2, vcell - 4, vcell - 4);
+      vctx.setLineDash([]);
+      vctx.fillStyle = "#ffcc80";
+      vctx.font = "bold 11px monospace";
+      vctx.textAlign = "center";
+      vctx.textBaseline = "bottom";
+      vctx.fillText(scenario.constraint.label, cp.x + vcell / 2, cp.y - 3);
+    }
+
+    if (scenario.conflict) {
+      const kp = vToCell(scenario.conflict.x, scenario.conflict.y);
+      vctx.strokeStyle = "#ef5350";
+      vctx.lineWidth = 3;
+      vctx.beginPath();
+      vctx.moveTo(kp.x + 6, kp.y + 6);
+      vctx.lineTo(kp.x + vcell - 6, kp.y + vcell - 6);
+      vctx.stroke();
+      vctx.beginPath();
+      vctx.moveTo(kp.x + vcell - 6, kp.y + 6);
+      vctx.lineTo(kp.x + 6, kp.y + vcell - 6);
+      vctx.stroke();
+      if (scenario.conflict.label) {
+        vctx.fillStyle = "#ff8a80";
+        vctx.font = "bold 11px monospace";
+        vctx.textAlign = "center";
+        vctx.textBaseline = "bottom";
+        vctx.fillText(scenario.conflict.label, kp.x + vcell / 2, kp.y - 3);
+      }
+    }
+
+    scenario.agents.forEach((agent) => {
+      const p = vToCell(agent.x, agent.y);
+      vctx.fillStyle = agent.color;
+      vctx.beginPath();
+      vctx.arc(p.x + vcell / 2, p.y + vcell / 2, getVAgentRadius(), 0, Math.PI * 2);
+      vctx.fill();
+      vctx.fillStyle = "#fff";
+      vctx.font = "bold 12px monospace";
+      vctx.textAlign = "center";
+      vctx.textBaseline = "middle";
+      vctx.fillText(agent.id, p.x + vcell / 2, p.y + vcell / 2);
+    });
+
+    const pillText = scenario.safe ? "SAFE" : "UNSAFE";
+    const fullLabel = `${scenario.phase} | ${pillText}`;
+    const pillX = voffsetX + 8;
+    const pillY = voffsetY + 8;
+    const pillH = 30;
+    const maxPillW = Math.max(130, vcell * vgrid - 16);
+    const padX = 12;
+
+    vctx.font = "bold 12px monospace";
+    let label = fullLabel;
+    let labelW = vctx.measureText(label).width;
+    const maxLabelW = Math.max(48, maxPillW - (padX * 2));
+    while (labelW > maxLabelW && label.length > 6) {
+      label = label.slice(0, -2).trimEnd() + "…";
+      labelW = vctx.measureText(label).width;
+    }
+
+    const pillW = Math.min(maxPillW, Math.max(120, Math.ceil(labelW + padX * 2)));
+    vctx.fillStyle = scenario.safe ? "rgba(102,187,106,0.2)" : "rgba(239,83,80,0.2)";
+    vRoundRect(pillX, pillY, pillW, pillH, 8);
+    vctx.fill();
+    vctx.strokeStyle = scenario.safe ? "#66bb6a" : "#ef5350";
+    vctx.lineWidth = 1.8;
+    vctx.stroke();
+    vctx.fillStyle = scenario.safe ? "#81c784" : "#ef9a9a";
+    vctx.textAlign = "left";
+    vctx.textBaseline = "middle";
+    vctx.fillText(label, pillX + padX, pillY + pillH / 2 + 0.5);
+
+    if (verifyCaption) {
+      verifyCaption.textContent = scenario.caption;
+    }
+  }
   
   function vRender() {
     const size = updateVerifyLayout();
@@ -2056,26 +2850,36 @@ if (verifyCanvas) {
       vRenderVerification();
     } else if (vMode === "refinement") {
       vRenderRefinement();
+    } else if (vMode === "verify-refine-loop") {
+      vRenderVerifyRefineLoop();
     }
   }
   
   function vAnimationLoop(ts) {
-    vTime = ts;
     if (!vLastTick) {
       vLastTick = ts;
       if (!vScenarioStart) {
         vScenarioStart = ts;
       }
+      if (!vTime) {
+        vTime = ts;
+      }
+    }
+    if (vPlaying) {
+      vTime = ts;
     }
     const elapsed = ts - vLastTick;
     
-    const delay = 3000;
+    const delay = vMode === "verify-refine-loop" ? 3200 : 3000;
     
-    if (elapsed > delay) {
-      const maxTick = vMode === "verification" ? verificationScenarios.length : refinementScenarios.length;
+    if (vPlaying && elapsed > delay) {
+      let maxTick = refinementScenarios.length;
+      if (vMode === "verification") maxTick = verificationScenarios.length;
+      if (vMode === "verify-refine-loop") maxTick = verifyRefineLoopScenarios.length;
       vTickCount = (vTickCount + 1) % maxTick;
       vLastTick = ts;
       vScenarioStart = ts;
+      vPausedScenarioElapsed = 0;
     }
     vRender();
     requestAnimationFrame(vAnimationLoop);
@@ -2086,12 +2890,31 @@ if (verifyCanvas) {
     btn.addEventListener("click", () => {
       vMode = btn.dataset.algo;
       vTickCount = 0;
-      vLastTick = 0;
-      vScenarioStart = performance.now();
+      const now = performance.now();
+      vLastTick = now;
+      vScenarioStart = now;
+      vPausedScenarioElapsed = 0;
+      vTime = now;
       vRender();
     });
   });
+
+  if (verifyPauseButton) {
+    verifyPauseButton.addEventListener("click", () => {
+      vPlaying = !vPlaying;
+      if (vPlaying) {
+        const now = performance.now();
+        vLastTick = now;
+        vScenarioStart = now - vPausedScenarioElapsed;
+        vTime = now;
+      } else {
+        vPausedScenarioElapsed = Math.max(0, vTime - vScenarioStart);
+      }
+      syncVerifyPauseButton();
+    });
+  }
   
+  syncVerifyPauseButton();
   vRender();
   requestAnimationFrame(vAnimationLoop);
 }

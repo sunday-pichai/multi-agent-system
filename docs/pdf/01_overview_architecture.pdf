@@ -1,0 +1,963 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Count 8 /Kids [3 0 R 5 0 R 7 0 R 9 0 R 11 0 R 13 0 R 15 0 R 17 0 R] >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 19 0 R >> >> /Contents 4 0 R >>
+endobj
+4 0 obj
+<< /Length 2196 >>
+stream
+BT
+/F1 11 Tf
+72 800 Td
+14 TL
+(MAS FINAL PROJECT: OVERVIEW AND ARCHITECTURE) Tj
+T*
+() Tj
+T*
+(1. PROJECT PURPOSE) Tj
+T*
+() Tj
+T*
+(This project implements a deterministic multi-agent warehouse system where robots:) Tj
+T*
+() Tj
+T*
+(  ? navigate on a 2D grid,) Tj
+T*
+(  ? pick requested shelves,) Tj
+T*
+(  ? deliver requested shelves to goal cells,) Tj
+T*
+(  ? avoid collisions through cooperative planning,) Tj
+T*
+(  ? improve safety through verification-guided refinement.) Tj
+T*
+() Tj
+T*
+(The system is intentionally algorithmic \(not ML-policy-driven\).) Tj
+T*
+(Core claim: practical multi-agent coordination can be built with explicit planning +) Tj
+T*
+(symmetry-reduced verification + constraint refinement.) Tj
+T*
+() Tj
+T*
+(2. WHAT THE SYSTEM CONTAINS) Tj
+T*
+() Tj
+T*
+(Core runtime modules:) Tj
+T*
+() Tj
+T*
+(  ? main.py: CLI entrypoint and orchestration.) Tj
+T*
+(  ? env.py: environment dynamics, reward/collision handling, rendering, evaluation.) Tj
+T*
+(  ? agent.py: robot/action primitives and pick/drop semantics.) Tj
+T*
+(  ? pathfinding.py: cooperative planner and assignment logic.) Tj
+T*
+(  ? symmetry_reduction.py: role-orbit detection and canonical state mapping.) Tj
+T*
+(  ? verification.py: bounded safety verification over quotient states.) Tj
+T*
+(  ? refinement.py: conversion of unsafe traces into planner constraints.) Tj
+T*
+(  ? config.py + config.yaml: defaults and runtime overrides.) Tj
+T*
+() Tj
+T*
+(Support:) Tj
+T*
+() Tj
+T*
+(  ? tests/: module and integration tests.) Tj
+T*
+(  ? docs/: documentation site and written docs.) Tj
+T*
+() Tj
+T*
+(3. ARCHITECTURAL STYLE) Tj
+T*
+() Tj
+T*
+(The architecture is a deterministic closed loop:) Tj
+T*
+() Tj
+T*
+(1. Planner computes one action per robot.) Tj
+T*
+(2. Environment executes actions simultaneously with conflict resolution.) Tj
+T*
+(3. Verification optionally runs bounded trials on symmetry-reduced state keys.) Tj
+T*
+(4. Refinement optionally injects hard constraints back into planner.) Tj
+T*
+() Tj
+T*
+(This forms a CEGAR-like pattern:) Tj
+T*
+() Tj
+T*
+(  ? generate behavior,) Tj
+T*
+(  ? detect violations,) Tj
+T*
+(  ? refine constraints,) Tj
+T*
+(  ? repeat.) Tj
+T*
+() Tj
+T*
+(4. EXECUTION MODES \(FROM MAIN.PY\)) Tj
+T*
+() Tj
+ET
+endstream
+endobj
+5 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 19 0 R >> >> /Contents 6 0 R >>
+endobj
+6 0 obj
+<< /Length 1770 >>
+stream
+BT
+/F1 11 Tf
+72 800 Td
+14 TL
+(The CLI supports:) Tj
+T*
+() Tj
+T*
+(  ? interactive: continuous render + planning loop.) Tj
+T*
+(  ? simulate: episode loop with optional rendering.) Tj
+T*
+(  ? eval: collision-rate evaluation over episodes.) Tj
+T*
+(  ? --detect-symmetry: print detected orbits and quotient metadata.) Tj
+T*
+(  ? --verify-refine: run verification and apply refinement iteratively.) Tj
+T*
+() Tj
+T*
+(Main orchestration functions:) Tj
+T*
+() Tj
+T*
+(  ? run_interactive\(...\)) Tj
+T*
+(  ? run_simulation\(...\)) Tj
+T*
+(  ? run_eval\(...\)) Tj
+T*
+(  ? run_verify_refine\(...\)) Tj
+T*
+() Tj
+T*
+(Default resolution:) Tj
+T*
+() Tj
+T*
+(  ? _apply_defaults\(...\) binds CLI omissions to values from config.py.) Tj
+T*
+() Tj
+T*
+(5. ENVIRONMENT MODEL \(ENV.PY\)) Tj
+T*
+() Tj
+T*
+(5.1 STATE VARIABLES) Tj
+T*
+() Tj
+T*
+(WarehouseEnv manages:) Tj
+T*
+() Tj
+T*
+(  ? grid dimensions \(grid_w, grid_h\),) Tj
+T*
+(  ? goal cells \(GOALS\),) Tj
+T*
+(  ? robots \(self.robots\),) Tj
+T*
+(  ? shelves \(self.shelves\),) Tj
+T*
+(  ? step counters and statistics,) Tj
+T*
+(  ? planner debug payloads:) Tj
+T*
+(  - _planner_allowed_shelf_entries,) Tj
+T*
+(  - _planner_last_actions,) Tj
+T*
+(  - _planner_debug_by_agent,) Tj
+T*
+(  ? conflict/event telemetry:) Tj
+T*
+(  - last_conflicts,) Tj
+T*
+(  - event_log,) Tj
+T*
+(  - traffic_heat,) Tj
+T*
+(  - collision_heat.) Tj
+T*
+() Tj
+T*
+(5.2 RESET AND SPAWN) Tj
+T*
+() Tj
+T*
+(reset\(\):) Tj
+T*
+() Tj
+T*
+(  ? places robots randomly on free cells \(excluding goals\),) Tj
+T*
+(  ? places shelves randomly on free cells,) Tj
+T*
+(  ? initializes metrics/log buffers,) Tj
+T*
+(  ? returns per-robot normalized state vectors.) Tj
+T*
+() Tj
+T*
+(5.3 STEP SEMANTICS) Tj
+T*
+() Tj
+T*
+(step\(actions, record_trajectories=False\) performs one simultaneous timestep:) Tj
+ET
+endstream
+endobj
+7 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 19 0 R >> >> /Contents 8 0 R >>
+endobj
+8 0 obj
+<< /Length 1818 >>
+stream
+BT
+/F1 11 Tf
+72 800 Td
+14 TL
+() Tj
+T*
+(1. Decode integer actions into Action enum.) Tj
+T*
+(2. Record intent-level conflicts \(boundary, vertex, edge\) for diagnostics.) Tj
+T*
+(3. Apply non-forward actions \(TURN_LEFT, TURN_RIGHT, PICK_DROP, WAIT\).) Tj
+T*
+(4. Collect forward intents.) Tj
+T*
+(5. Reject forward moves that violate:) Tj
+T*
+(   - boundary,) Tj
+T*
+(   - shelf occupancy rules,) Tj
+T*
+(   - static occupied targets,) Tj
+T*
+(   - same-target contention,) Tj
+T*
+(   - edge swap conflicts.) Tj
+T*
+(6. Apply valid forward moves simultaneously.) Tj
+T*
+(7. Compute shaping rewards from distance-to-target delta.) Tj
+T*
+(8. Apply delivery team bonus and penalties.) Tj
+T*
+(9. Update episode/global counters and logs.) Tj
+T*
+() Tj
+T*
+(done is currently bounded by self.steps > 1000.) Tj
+T*
+() Tj
+T*
+(5.4 RENDERING AND OBSERVABILITY) Tj
+T*
+() Tj
+T*
+(render\(\) draws:) Tj
+T*
+() Tj
+T*
+(  ? grid, goals, shelves, robots,) Tj
+T*
+(  ? orbit-color indicator using symmetry detection,) Tj
+T*
+(  ? conflict overlays.) Tj
+T*
+() Tj
+T*
+(Rendering is presentation-only and does not alter simulation logic.) Tj
+T*
+() Tj
+T*
+(5.5 EVALUATION) Tj
+T*
+() Tj
+T*
+(evaluate\(planner, num_episodes, max_steps_per_episode, ...\) runs no-render episodes and) Tj
+T*
+(returns:) Tj
+T*
+() Tj
+T*
+(  ? average collisions per agent per episode.) Tj
+T*
+() Tj
+T*
+(6. AGENT SEMANTICS \(AGENT.PY\)) Tj
+T*
+() Tj
+T*
+(6.1 ENUMS) Tj
+T*
+() Tj
+T*
+(  ? Direction: UP, RIGHT, DOWN, LEFT.) Tj
+T*
+(  ? Action: FORWARD, TURN_LEFT, TURN_RIGHT, PICK_DROP, WAIT.) Tj
+T*
+() Tj
+T*
+(6.2 ROBOT STATE) Tj
+T*
+() Tj
+T*
+(Each Robot has:) Tj
+T*
+() Tj
+T*
+(  ? id, x, y, dir,) Tj
+T*
+(  ? optional carrying shelf dict.) Tj
+T*
+() Tj
+T*
+(6.3 MOTION AND INTERACTION RULES) Tj
+T*
+() Tj
+T*
+(  ? forward\(env\): moves one cell if inside bounds and not blocked by robot/shelf.) Tj
+ET
+endstream
+endobj
+9 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 19 0 R >> >> /Contents 10 0 R >>
+endobj
+10 0 obj
+<< /Length 1997 >>
+stream
+BT
+/F1 11 Tf
+72 800 Td
+14 TL
+(  ? pick_or_drop\(env\):) Tj
+T*
+(  - picks shelf on same cell if empty-handed,) Tj
+T*
+(  - delivers requested shelf at goal,) Tj
+T*
+(  - otherwise drops carried shelf.) Tj
+T*
+() Tj
+T*
+(Shelf-blocking policy is planner-aware:) Tj
+T*
+() Tj
+T*
+(  ? _occupied_by_shelf\(...\) allows entry to assigned requested shelf cell only,) Tj
+T*
+(  ? reads allowed entries from env._planner_allowed_shelf_entries.) Tj
+T*
+() Tj
+T*
+(This is a key planner-environment contract.) Tj
+T*
+() Tj
+T*
+(7. COOPERATIVE PLANNING \(PATHFINDING.PY\)) Tj
+T*
+() Tj
+T*
+(CooperativePlanner is the central policy module.) Tj
+T*
+() Tj
+T*
+(7.1 INTERNAL COMPONENTS) Tj
+T*
+() Tj
+T*
+(  ? ReservationTable: time-indexed vertex and edge occupancy reservations.) Tj
+T*
+(  ? ConstraintTable: hard forbidden vertex/edge constraints.) Tj
+T*
+(  ? AssignmentManager: robot-to-shelf and shelf-to-robot matching.) Tj
+T*
+(  ? IdleTracker: starvation/deadlock mitigation through idle monitoring.) Tj
+T*
+() Tj
+T*
+(7.2 PLANNING STRATEGY) Tj
+T*
+() Tj
+T*
+(Per timestep:) Tj
+T*
+() Tj
+T*
+(1. Track idleness and update assignments.) Tj
+T*
+(2. Build planning order with rotating priority offset.) Tj
+T*
+(3. Plan robots sequentially in that order.) Tj
+T*
+(4. For each robot:) Tj
+T*
+(   - decide immediate PICK_DROP if applicable,) Tj
+T*
+(   - else run time-aware A* \(astar_time\) to target,) Tj
+T*
+(   - fallback to deterministic local escape action if stuck.) Tj
+T*
+(5. Reserve trajectory prefixes for already-planned robots.) Tj
+T*
+(6. Sanitize first-step conflicts \(same target/swap/invalid forward\).) Tj
+T*
+() Tj
+T*
+(7.3 A* SEARCH SPACE) Tj
+T*
+() Tj
+T*
+(Space-time node key:) Tj
+T*
+() Tj
+T*
+(  ? \(x, y, dir, t\).) Tj
+T*
+() Tj
+T*
+(Transition constraints include:) Tj
+T*
+() Tj
+T*
+(  ? grid bounds,) Tj
+T*
+(  ? blocked shelf cells,) Tj
+T*
+(  ? reservations \(vertex + both edge directions\),) Tj
+T*
+(  ? dynamic blocked occupancy assumptions,) Tj
+T*
+(  ? refinement constraints.) Tj
+T*
+() Tj
+T*
+(7.4 ASSIGNMENT LOGIC) Tj
+ET
+endstream
+endobj
+11 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 19 0 R >> >> /Contents 12 0 R >>
+endobj
+12 0 obj
+<< /Length 1634 >>
+stream
+BT
+/F1 11 Tf
+72 800 Td
+14 TL
+() Tj
+T*
+(minimum_cost_matching\(...\) \(Hungarian algorithm\) is used for:) Tj
+T*
+() Tj
+T*
+(  ? free robot -> requested shelf assignment,) Tj
+T*
+(  ? carrier -> delivery goal slot assignment.) Tj
+T*
+() Tj
+T*
+(This reduces assignment churn and keeps delivery flow balanced.) Tj
+T*
+() Tj
+T*
+(8. SYMMETRY REDUCTION \(SYMMETRY_REDUCTION.PY\)) Tj
+T*
+() Tj
+T*
+(Symmetry reduction maps many labeled states into one quotient representative.) Tj
+T*
+() Tj
+T*
+(8.1 ROLE-ORBIT DETECTION) Tj
+T*
+() Tj
+T*
+(Robots are grouped by compact role:) Tj
+T*
+() Tj
+T*
+(  ? \(0,0\): carrying nothing,) Tj
+T*
+(  ? \(1,1\): carrying requested shelf,) Tj
+T*
+(  ? \(1,0\): carrying non-requested shelf.) Tj
+T*
+() Tj
+T*
+(Robots with same role belong to same orbit.) Tj
+T*
+() Tj
+T*
+(8.2 CANONICALIZATION) Tj
+T*
+() Tj
+T*
+(For each orbit:) Tj
+T*
+() Tj
+T*
+(  ? encode each member as \(x, y, dir, carrying_requested\),) Tj
+T*
+(  ? sort tuples lexicographically,) Tj
+T*
+(  ? store orbit tuple.) Tj
+T*
+() Tj
+T*
+(State key is tuple of orbit tuples \(plus optional shelf key\).) Tj
+T*
+() Tj
+T*
+(Optional shelf inclusion:) Tj
+T*
+() Tj
+T*
+(  ? include uncarried shelf tuples \(x, y, requested_flag\) sorted.) Tj
+T*
+() Tj
+T*
+(8.3 QUOTIENT METADATA) Tj
+T*
+() Tj
+T*
+(build_quotient_model\(env\) provides:) Tj
+T*
+() Tj
+T*
+(  ? orbits,) Tj
+T*
+(  ? representative index per orbit,) Tj
+T*
+(  ? agent index -> orbit index mapping.) Tj
+T*
+() Tj
+T*
+(9. VERIFICATION \(VERIFICATION.PY\)) Tj
+T*
+() Tj
+T*
+(verify_on_quotient\(...\) performs bounded trial-based safety checking.) Tj
+T*
+() Tj
+T*
+(9.1 TRIAL LOOP) Tj
+T*
+() Tj
+T*
+(For each trial:) Tj
+T*
+() Tj
+ET
+endstream
+endobj
+13 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 19 0 R >> >> /Contents 14 0 R >>
+endobj
+14 0 obj
+<< /Length 1788 >>
+stream
+BT
+/F1 11 Tf
+72 800 Td
+14 TL
+(1. Reset environment.) Tj
+T*
+(2. Maintain visited set of canonical quotient keys.) Tj
+T*
+(3. At each step:) Tj
+T*
+(   - canonicalize current state,) Tj
+T*
+(   - stop trial if key repeated \(cycle in quotient space\),) Tj
+T*
+(   - execute planner action,) Tj
+T*
+(   - detect collisions/conflicts,) Tj
+T*
+(   - evaluate minimum pairwise Manhattan separation.) Tj
+T*
+() Tj
+T*
+(9.2 SAFETY OUTPUTS) Tj
+T*
+() Tj
+T*
+(Returns dict with fields such as:) Tj
+T*
+() Tj
+T*
+(  ? safe \(bool\),) Tj
+T*
+(  ? delta_q \(minimum margin relative to required separation\),) Tj
+T*
+(  ? avg_collision_rate,) Tj
+T*
+(  ? when unsafe:) Tj
+T*
+(  - conflicts,) Tj
+T*
+(  - counterexample,) Tj
+T*
+(  - actions.) Tj
+T*
+() Tj
+T*
+(delta_q interpretation:) Tj
+T*
+() Tj
+T*
+(  ? delta_q >= 0: maintained separation requirement,) Tj
+T*
+(  ? delta_q < 0: violated required separation.) Tj
+T*
+() Tj
+T*
+(10. REFINEMENT \(REFINEMENT.PY\)) Tj
+T*
+() Tj
+T*
+(refine_planner_with_conflicts\(...\) converts verification conflicts into hard planner) Tj
+T*
+(constraints.) Tj
+T*
+() Tj
+T*
+(Mapping:) Tj
+T*
+() Tj
+T*
+(  ? vertex conflict -> forbid that position at t+1,) Tj
+T*
+(  ? edge conflict -> forbid both edge directions at t+1,) Tj
+T*
+(  ? boundary conflict -> forbid out-of-bounds target position at t+1,) Tj
+T*
+(  ? separation currently ignored.) Tj
+T*
+() Tj
+T*
+(Fallback path:) Tj
+T*
+() Tj
+T*
+(  ? if no explicit conflicts but trace exists, add coarse position constraint from:) Tj
+T*
+(  - first same-cell collision if present,) Tj
+T*
+(  - else closest pair anchor at time 1.) Tj
+T*
+() Tj
+T*
+(Result:) Tj
+T*
+() Tj
+T*
+(  ? returns count of applied constraints.) Tj
+T*
+() Tj
+T*
+(11. CONFIGURATION SYSTEM \(CONFIG.PY + CONFIG.YAML\)) Tj
+T*
+() Tj
+T*
+(config.py contains typed defaults for:) Tj
+T*
+() Tj
+ET
+endstream
+endobj
+15 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 19 0 R >> >> /Contents 16 0 R >>
+endobj
+16 0 obj
+<< /Length 1939 >>
+stream
+BT
+/F1 11 Tf
+72 800 Td
+14 TL
+(  ? grid size and goals,) Tj
+T*
+(  ? planner horizon and node caps,) Tj
+T*
+(  ? idleness and reservation windows,) Tj
+T*
+(  ? rendering FPS and visuals,) Tj
+T*
+(  ? verification thresholds and trial sizes,) Tj
+T*
+(  ? refinement iteration/constraint limits.) Tj
+T*
+() Tj
+T*
+(load_from_yaml\(...\) optionally overrides these values at startup.) Tj
+T*
+() Tj
+T*
+(main.py then applies CLI overrides on top.) Tj
+T*
+() Tj
+T*
+(Precedence is effectively:) Tj
+T*
+() Tj
+T*
+(1. hardcoded defaults,) Tj
+T*
+(2. YAML overrides,) Tj
+T*
+(3. CLI overrides.) Tj
+T*
+() Tj
+T*
+(12. DATA CONTRACTS BETWEEN MODULES) Tj
+T*
+() Tj
+T*
+(Critical contracts:) Tj
+T*
+() Tj
+T*
+(  ? Planner expects env fields:) Tj
+T*
+(  - robots, shelves, GOALS, grid size.) Tj
+T*
+(  ? Environment expects planner outputs:) Tj
+T*
+(  - list of integer action IDs aligned with env.robots.) Tj
+T*
+(  ? Agent shelf blocking depends on planner-provided:) Tj
+T*
+(  - env._planner_allowed_shelf_entries.) Tj
+T*
+(  ? Verification expects planner API:) Tj
+T*
+(  - compute_actions\(env\).) Tj
+T*
+(  ? Refinement expects planner API:) Tj
+T*
+(  - add_constraint_position\(...\),) Tj
+T*
+(  - add_constraint_edge\(...\).) Tj
+T*
+() Tj
+T*
+(13. END-TO-END SAFETY LOOP) Tj
+T*
+() Tj
+T*
+(During --verify-refine:) Tj
+T*
+() Tj
+T*
+(1. Run verify_on_quotient\(...\).) Tj
+T*
+(2. If safe=True, stop and report.) Tj
+T*
+(3. If unsafe:) Tj
+T*
+(   - extract conflicts/counterexample,) Tj
+T*
+(   - inject constraints via refinement,) Tj
+T*
+(   - rerun verification for next iteration.) Tj
+T*
+() Tj
+T*
+(This loop improves safety by hardening planner search space over iterations.) Tj
+T*
+() Tj
+T*
+(14. DETERMINISM AND REPRODUCIBILITY) Tj
+T*
+() Tj
+T*
+(  ? Seed control via --seed in main.py.) Tj
+T*
+(  ? Given same seed/config and deterministic code paths, execution is reproducible.) Tj
+T*
+(  ? Symmetry reduction is deterministic because canonicalization uses sorted tuples.) Tj
+T*
+() Tj
+ET
+endstream
+endobj
+17 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 19 0 R >> >> /Contents 18 0 R >>
+endobj
+18 0 obj
+<< /Length 2253 >>
+stream
+BT
+/F1 11 Tf
+72 800 Td
+14 TL
+(15. COMPLEXITY AND SCALABILITY NOTES) Tj
+T*
+() Tj
+T*
+(Major computational costs:) Tj
+T*
+() Tj
+T*
+(  ? Planner:) Tj
+T*
+(  - one bounded A* per robot per timestep,) Tj
+T*
+(  - plus assignment matching.) Tj
+T*
+(  ? Verification:) Tj
+T*
+(  - trials * horizon worst-case steps,) Tj
+T*
+(  - each step calls planner and environment dynamics.) Tj
+T*
+(  ? Symmetry:) Tj
+T*
+(  - canonicalization overhead is small relative to planning,) Tj
+T*
+(  - potential benefit depends on how frequently symmetric permutations occur.) Tj
+T*
+() Tj
+T*
+(16. FAILURE MODES AND LIMITS) Tj
+T*
+() Tj
+T*
+(Current design limitations:) Tj
+T*
+() Tj
+T*
+(  ? Bounded verification, not full proof of global safety.) Tj
+T*
+(  ? Symmetry reduction is role-based, not geometric-map automorphism-based.) Tj
+T*
+(  ? Refinement currently translates a limited conflict vocabulary.) Tj
+T*
+(  ? Performance sensitivity to congestion, horizon, and node caps.) Tj
+T*
+() Tj
+T*
+(These are engineering tradeoffs for tractability and transparency.) Tj
+T*
+() Tj
+T*
+(17. TESTING POSTURE) Tj
+T*
+() Tj
+T*
+(Existing tests include:) Tj
+T*
+() Tj
+T*
+(  ? unit/integration coverage across environment, agent, refinement, and verification flow.) Tj
+T*
+(  ? integration case for verification+refinement \(tests/test_verification_refinement.py\).) Tj
+T*
+() Tj
+T*
+(Recommended additions:) Tj
+T*
+() Tj
+T*
+(  ? dedicated symmetry canonicalization unit tests,) Tj
+T*
+(  ? regression tests for quotient-key invariance under same-orbit permutations,) Tj
+T*
+(  ? performance baselines for quotient compression on selected seeded scenarios.) Tj
+T*
+() Tj
+T*
+(18. ARCHITECTURE SUMMARY) Tj
+T*
+() Tj
+T*
+(The project is a layered deterministic MAS stack:) Tj
+T*
+() Tj
+T*
+(  ? execution substrate \(env.py, agent.py\),) Tj
+T*
+(  ? coordination policy \(pathfinding.py\),) Tj
+T*
+(  ? state-space reduction \(symmetry_reduction.py\),) Tj
+T*
+(  ? bounded safety analysis \(verification.py\),) Tj
+T*
+(  ? corrective feedback \(refinement.py\),) Tj
+T*
+(  ? orchestration/config \(main.py, config.py\).) Tj
+T*
+() Tj
+T*
+(The core value is not one isolated algorithm; it is the integrated pipeline that couples) Tj
+T*
+(planning with formalized safety feedback under a symmetry-aware state abstraction.) Tj
+ET
+endstream
+endobj
+19 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Courier >>
+endobj
+xref
+0 20
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000161 00000 n 
+0000000288 00000 n 
+0000002536 00000 n 
+0000002663 00000 n 
+0000004485 00000 n 
+0000004612 00000 n 
+0000006482 00000 n 
+0000006610 00000 n 
+0000008660 00000 n 
+0000008789 00000 n 
+0000010476 00000 n 
+0000010605 00000 n 
+0000012446 00000 n 
+0000012575 00000 n 
+0000014567 00000 n 
+0000014696 00000 n 
+0000017002 00000 n 
+trailer
+<< /Size 20 /Root 1 0 R >>
+startxref
+17071
+%%EOF

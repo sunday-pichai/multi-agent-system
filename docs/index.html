@@ -92,6 +92,7 @@
         
         <div class="nav-section">
           <h3 class="nav-section-title">Resources</h3>
+          <a href="#documentation-library" class="nav-link">Documentation Library</a>
           <a href="#limitations" class="nav-link">Limitations</a>
         </div>
       </nav>
@@ -130,6 +131,7 @@
       
       <div class="mobile-nav-section">
         <h4 class="mobile-nav-section__title">Resources</h4>
+        <a href="#documentation-library" class="mobile-nav-link">Documentation Library</a>
         <a href="#limitations" class="mobile-nav-link">Limitations</a>
       </div>
     </div>
@@ -348,8 +350,12 @@ source .venv/bin/activate  # Linux/Mac</code></pre>
                 
                 <h4 style="margin-top: 2rem;">Interactive Demo: A* Pathfinding</h4>
                 <div class="demo-controls">
-                  <button class="demo-btn is-active" data-algo="astar">A* Expansion</button>
+                  <button class="demo-btn is-active" data-algo="astar">A* Search Trace</button>
                   <button class="demo-btn" data-algo="prioritized">Cooperative Planning</button>
+                  <button class="demo-btn" data-algo="reservation">WHCA* Reservations</button>
+                  <button class="demo-btn" data-algo="edge-swap">Edge-Swap Conflict</button>
+                  <button class="demo-btn" data-algo="assignment">Hungarian Matching</button>
+                  <button class="demo-btn demo-btn--control" data-control="algo-pause" aria-pressed="false">Pause</button>
                 </div>
                 <div class="demo-canvas-wrapper">
                   <canvas id="algoCanvas" width="560" height="336"></canvas>
@@ -374,6 +380,8 @@ source .venv/bin/activate  # Linux/Mac</code></pre>
                 <div class="demo-controls">
                   <button class="demo-btn" data-algo="symmetry">Symmetry Grouping</button>
                   <button class="demo-btn" data-algo="quotient">Quotient Comparison</button>
+                  <button class="demo-btn" data-algo="quotient-key">Quotient Key</button>
+                  <button class="demo-btn demo-btn--control" data-control="symmetry-pause" aria-pressed="false">Pause</button>
                 </div>
                 <div class="demo-canvas-wrapper">
                   <canvas id="symmetryCanvas" width="560" height="336"></canvas>
@@ -397,7 +405,8 @@ source .venv/bin/activate  # Linux/Mac</code></pre>
                 <h4 style="margin-top: 2rem;">Interactive Demo: Verification Process</h4>
                 <div class="demo-controls">
                   <button class="demo-btn" data-algo="verification">Safety Check</button>
-                  <button class="demo-btn" data-algo="refinement">Constraint Refinement</button>
+                  <button class="demo-btn" data-algo="verify-refine-loop">Verify-Refine Loop</button>
+                  <button class="demo-btn demo-btn--control" data-control="verify-pause" aria-pressed="false">Pause</button>
                 </div>
                 <div class="demo-canvas-wrapper">
                   <canvas id="verifyCanvas" width="560" height="336"></canvas>
@@ -501,6 +510,29 @@ Final constraints: 3 positions, 1 edges</code></pre>
             </div>
           </section>
 
+          <!-- Documentation Library Section -->
+          <section class="doc-section" id="documentation-library">
+            <h2 class="section-title">Documentation Library</h2>
+            <div class="section-content">
+              <p>
+                Complete Markdown documentation set for this project:
+              </p>
+              <div class="info-card">
+                <ul>
+                  <li><a href="reader.html?doc=pdf/01_overview_architecture.md" target="_blank" rel="noopener noreferrer">01: Overview and Architecture</a></li>
+                  <li><a href="reader.html?doc=pdf/02_symmetry_reduction_verification.md" target="_blank" rel="noopener noreferrer">02: Symmetry Reduction and Verification</a></li>
+                  <li><a href="reader.html?doc=pdf/03_pathfinding_planner.md" target="_blank" rel="noopener noreferrer">03: Pathfinding and Cooperative Planner</a></li>
+                  <li><a href="reader.html?doc=pdf/04_env_dynamics.md" target="_blank" rel="noopener noreferrer">04: Environment Dynamics</a></li>
+                  <li><a href="reader.html?doc=pdf/05_agent_semantics.md" target="_blank" rel="noopener noreferrer">05: Agent Semantics</a></li>
+                  <li><a href="reader.html?doc=pdf/06_main_orchestration_cli.md" target="_blank" rel="noopener noreferrer">06: Main Orchestration and CLI</a></li>
+                  <li><a href="reader.html?doc=pdf/07_config_and_parameters.md" target="_blank" rel="noopener noreferrer">07: Configuration and Parameters</a></li>
+                  <li><a href="reader.html?doc=pdf/08_refinement_and_constraint_injection.md" target="_blank" rel="noopener noreferrer">08: Refinement and Constraint Injection</a></li>
+                  <li><a href="reader.html?doc=pdf/09_detailed_workflows_and_execution_playbook.md" target="_blank" rel="noopener noreferrer">09: Detailed Workflows and Execution Playbook</a></li>
+                </ul>
+              </div>
+            </div>
+          </section>
+
           <!-- Limitations Section -->
           <section class="doc-section" id="limitations">
             <h2 class="section-title">Limitations</h2>
@@ -542,6 +574,7 @@ Final constraints: 3 positions, 1 edges</code></pre>
             <a href="#algorithms" class="toc__link">Algorithms</a>
             <a href="#configuration" class="toc__link">Configuration</a>
             <a href="#examples" class="toc__link">Examples</a>
+            <a href="#documentation-library" class="toc__link">Documentation Library</a>
             <a href="#limitations" class="toc__link">Limitations</a>
           </nav>
         </aside>
