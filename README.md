@@ -166,6 +166,7 @@ python tests/test_verification_refinement.py
 Static documentation site:
 
 - `docs/index.html`
+- Planner internals documentation: `docs/pathfinding.md`
 
 ## License
 
