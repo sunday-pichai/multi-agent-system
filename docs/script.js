@@ -839,17 +839,17 @@ if (algoCanvas) {
     },
     {
       label: "3) Priority resolve",
-      aFrom: { x: 4, y: 4 }, aTo: { x: 5, y: 4 },
-      bFrom: { x: 5, y: 4 }, bTo: { x: 5, y: 4 },
-      resolved: "B waits",
-      caption: "Sanitization: lower-priority agent waits; higher-priority move proceeds.",
+      aFrom: { x: 4, y: 4 }, aTo: { x: 4, y: 4 },
+      bFrom: { x: 5, y: 4 }, bTo: { x: 6, y: 4 },
+      resolved: "B yields lane",
+      caption: "Conflict resolution: lower-priority agent yields to a free cell first.",
     },
     {
       label: "4) Next timestep",
-      aFrom: { x: 5, y: 4 }, aTo: { x: 6, y: 4 },
-      bFrom: { x: 5, y: 4 }, bTo: { x: 4, y: 4 },
+      aFrom: { x: 4, y: 4 }, aTo: { x: 5, y: 4 },
+      bFrom: { x: 6, y: 4 }, bTo: { x: 6, y: 4 },
       resolved: "Safe progression",
-      caption: "After one wait, both can continue without edge swap collision.",
+      caption: "With lane yielded, A advances safely; no edge-swap or vertex collision.",
     },
   ];
 
