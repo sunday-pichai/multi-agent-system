@@ -155,15 +155,8 @@ def _log_refine_summary(
     avg_rate = float(result.get("avg_collision_rate", 0.0))
     logger.info("Average collision rate (per step): %.4f", avg_rate)
 
-    positions = []
-    for t in sorted(planner.constraints.positions.keys()):
-        for pos in planner.constraints.positions[t]:
-            positions.append((t, pos))
-
-    edges = []
-    for t in sorted(planner.constraints.edges.keys()):
-        for edge in planner.constraints.edges[t]:
-            edges.append((t, edge))
+    positions = [(t, p) for t in sorted(planner.constraints.positions) for p in planner.constraints.positions[t]]
+    edges = [(t, e) for t in sorted(planner.constraints.edges) for e in planner.constraints.edges[t]]
 
     logger.info("Final constraints: %d positions, %d edges", len(positions), len(edges))
     if positions:
@@ -222,19 +215,20 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+_DEFAULTS = {
+    "plan_horizon": "PLAN_HORIZON",
+    "verify_horizon": "VERIFY_HORIZON",
+    "verify_trials": "VERIFY_TRIALS",
+    "min_separation": "MIN_SEPARATION",
+    "refine_iterations": "REFINE_ITERATIONS",
+    "refine_max_constraints": "REFINE_MAX_CONSTRAINTS",
+}
+
+
 def _apply_defaults(args: argparse.Namespace) -> None:
-    if args.plan_horizon is None:
-        args.plan_horizon = cfg.PLAN_HORIZON
-    if args.verify_horizon is None:
-        args.verify_horizon = cfg.VERIFY_HORIZON
-    if args.verify_trials is None:
-        args.verify_trials = cfg.VERIFY_TRIALS
-    if args.min_separation is None:
-        args.min_separation = cfg.MIN_SEPARATION
-    if args.refine_iterations is None:
-        args.refine_iterations = cfg.REFINE_ITERATIONS
-    if args.refine_max_constraints is None:
-        args.refine_max_constraints = cfg.REFINE_MAX_CONSTRAINTS
+    for attr, cfg_name in _DEFAULTS.items():
+        if getattr(args, attr) is None:
+            setattr(args, attr, getattr(cfg, cfg_name))
 
 
 def main(argv=None) -> None:

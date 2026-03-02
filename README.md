@@ -3,70 +3,41 @@
 [![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-Deterministic multi-agent warehouse coordination with formal safety verification and constraint-guided refinement.
+Deterministic grid-based multi-agent warehouse coordination with explicit planning, bounded safety verification, and counterexample-driven refinement.
 
-## Overview
+## What This Project Does
 
-This project simulates robots in a grid warehouse where agents pick requested shelves and deliver them to goal cells.  
-The system is intentionally non-ML: planning, verification, and refinement are all explicit algorithmic components.
+Robots operate on a 2D grid:
 
-Core properties:
+- pick requested shelves,
+- deliver them to goal cells,
+- avoid vertex and edge collisions,
+- and optionally run verification/refinement loops to improve safety.
 
-- Deterministic planning policy
-- Collision-aware multi-agent coordination
-- Symmetry-reduced verification on quotient states
-- Counterexample-driven refinement loop
-- Real-time visualization with pygame
+This is a non-ML system. Behavior is algorithmic and reproducible (optionally with `--seed`).
 
 ## Demo
 
 ![Warehouse MAS Demo](docs/demo-gif.gif)
 
-## System Architecture
+Also available as video: `docs/demo.mp4`.
 
-The runtime loop is:
+## Core Components
 
-1. **Plan**: compute one action per agent with a prioritized time-aware planner.
-2. **Step**: apply actions in the environment and record conflicts/collisions.
-3. **Verify** (optional): run bounded checks over symmetry-reduced state keys.
-4. **Refine** (optional): convert counterexamples into hard planner constraints.
-
-Main modules:
-
-- `env.py`: grid environment, rewards, rendering, episode control
-- `agent.py`: robot direction/action primitives and pick/drop behavior
-- `pathfinding.py`: reservation-based planner and constraints interface
-- `symmetry_reduction.py`: role orbit detection and canonicalization
-- `verification.py`: bounded quotient safety checks
-- `refinement.py`: constraint extraction from conflicts/traces
-- `main.py`: CLI entry point and orchestration
-
-## Planning Model
-
-`CooperativePlanner` in `pathfinding.py` uses a prioritized multi-agent strategy:
-
-- Agents are assigned to requested shelves (nearest matching).
-- Agents are planned sequentially with rotating priority (fairness across timesteps).
-- Each planned trajectory reserves vertices and edges in a short time window (WHCA*-style).
-- A* search runs on `(x, y, dir, t)` and rejects moves violating:
-  - grid bounds
-  - conservative early-time occupancy for not-yet-planned agents
-  - reservation conflicts
-  - refinement constraints
-- Stalled agents can use deterministic one-step escape actions to break deadlocks.
-
-This keeps planner behavior predictable while still handling congestion and contention.
-
-## Verification and Refinement
-
-Verification (`verify_on_quotient`) performs bounded trials and tracks:
-
-- collisions
-- minimum pairwise Manhattan separation
-- quotient safety margin (`delta_q`)
-
-If unsafe behavior is found, the returned conflict trace is consumed by refinement (`refine_planner_with_conflicts`), which adds hard constraints (vertex/edge/boundary) back into the planner.  
-The verify-refine loop is executed iteratively by `main.py`.
+- `main.py`: CLI entry point and orchestration.
+- `env.py`: warehouse environment dynamics, rewards, collisions, rendering hooks, evaluation loop.
+- `agent.py`: robot state/action primitives (`FORWARD`, `TURN_LEFT`, `TURN_RIGHT`, `PICK_DROP`, `WAIT`).
+- `pathfinding.py`: cooperative planner with:
+  - time-aware A* on `(x, y, direction, t)`,
+  - rolling reservations (position + edge),
+  - assignment logic,
+  - idle tracking and deadlock escape behavior,
+  - injected hard constraints from refinement.
+- `symmetry_reduction.py`: role-orbit detection and canonical quotient keys.
+- `verification.py`: bounded quotient-state safety checks and counterexample extraction.
+- `refinement.py`: conflict/trace-to-constraint conversion.
+- `renderer.py`: pygame renderer (grid, robots, shelves, goals, conflict overlays).
+- `config.py` + `config.yaml`: defaults + YAML overrides.
 
 ## Installation
 
@@ -74,12 +45,17 @@ The verify-refine loop is executed iteratively by `main.py`.
 pip install -r requirements.txt
 ```
 
-## Usage
+Dependencies currently listed:
 
-Interactive simulation (rendered):
+- `pygame`
+- `pyyaml`
+
+## Quick Start
+
+Interactive mode (default mode):
 
 ```bash
-python main.py --mode interactive --render
+python main.py
 ```
 
 Batch simulation:
@@ -88,7 +64,7 @@ Batch simulation:
 python main.py --mode simulate --episodes 8 --steps-per-episode 200
 ```
 
-Evaluation mode:
+Evaluation:
 
 ```bash
 python main.py --mode eval --eval-episodes 3 --steps-per-episode 150
@@ -100,15 +76,39 @@ Verification + refinement:
 python main.py --verify-refine --verify-horizon 30 --verify-trials 20
 ```
 
-Symmetry inspection:
+Symmetry/orbit inspection:
 
 ```bash
 python main.py --detect-symmetry
 ```
 
-## Configuration
+## CLI Reference
 
-Runtime configuration is loaded from `config.yaml`.
+`main.py --help` exposes:
+
+- `--mode {interactive,simulate,eval}` (default: `interactive`)
+- `--render` (enables rendering in simulate mode; interactive always renders)
+- `--config CONFIG` (default: `config.yaml`)
+- `--seed SEED`
+- `--cell-size CELL_SIZE`
+- `--episodes EPISODES` (default: `8`)
+- `--steps-per-episode STEPS_PER_EPISODE` (default: `200`)
+- `--log-interval LOG_INTERVAL` (default: `1`)
+- `--eval-episodes EVAL_EPISODES` (default: `3`)
+- `--plan-horizon PLAN_HORIZON`
+- `--detect-symmetry`
+- `--verify-refine`
+- `--verify-horizon VERIFY_HORIZON`
+- `--verify-trials VERIFY_TRIALS`
+- `--verify-include-shelves`
+- `--verify-progress VERIFY_PROGRESS` (default: `1`)
+- `--min-separation MIN_SEPARATION`
+- `--refine-iterations REFINE_ITERATIONS`
+- `--refine-max-constraints REFINE_MAX_CONSTRAINTS`
+
+## Configuration (`config.yaml`)
+
+The runtime loads `config.yaml` via `cfg.load_from_yaml(...)`. CLI flags override config values when provided.
 
 ```yaml
 grid:
@@ -127,9 +127,12 @@ planning:
   horizon: 30
   astar_max_nodes: 3500
   idle_limit: 4
+  reservation_window: 8
+  unplanned_hold_steps: 2
+  escape_idle_steps: 6
 
 render:
-  fps: 2
+  fps: 1
 
 verification:
   min_separation: 1
@@ -139,34 +142,54 @@ verification:
 refinement:
   iterations: 2
   max_constraints: 100
+
+paths:
+  model_dir: models
 ```
 
-Notes:
+Note: `paths.model_dir` is present in YAML but is not consumed by the current runtime code.
 
-- `render.fps: 2` gives approximately `0.5s` per rendered step.
-- CLI flags override YAML defaults when provided.
+## Controls (Interactive/Rendered)
+
+- Close window or press `Q`: quit.
+- Left click robot cell: select agent.
+- `Tab`, `Right`, `.`: next agent.
+- `Left`, `,`: previous agent.
 
 ## Testing
 
-Run all tests:
+Run bundled suite runner:
 
 ```bash
 python tests/run_tests.py
 ```
 
-Run focused suites:
+Run individual suites directly:
 
 ```bash
+python tests/test_rewards.py
+python tests/test_env.py
+python tests/test_agent.py
+python tests/test_training.py
+python tests/test_integration.py
 python tests/test_refinement.py
 python tests/test_verification_refinement.py
 ```
 
 ## Documentation
 
-Static documentation site:
+- Web documentation site: `docs/index.html`
+- Alternate reader view: `docs/reader.html`
+- PDF/Markdown chapter library: `docs/pdf/`
+  - includes architecture, planning, verification, refinement, CLI/config, and execution playbooks
+- Full compiled documentation PDF:
+  - `docs/pdf/Warehouse_MAS_Documentation.pdf`
 
-- `docs/index.html`
-- Planner internals documentation: `docs/pathfinding.md`
+## Repository Layout
+
+Top-level runtime files are at the project root (`main.py`, `env.py`, `pathfinding.py`, etc.).
+
+The repository also contains `src/warehouse_mas/...` package directories (algorithms, coordination, simulation, visualization, etc.) as a broader project structure scaffold.
 
 ## License
 

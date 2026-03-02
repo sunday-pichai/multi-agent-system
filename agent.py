@@ -86,12 +86,7 @@ class Robot:
         return 0 <= x < env.grid_w and 0 <= y < env.grid_h
 
     def _occupied_by_robot(self, x: int, y: int, env: Any) -> bool:
-        for other in env.robots:
-            if other is self:
-                continue
-            if other.x == x and other.y == y:
-                return True
-        return False
+        return any(o.x == x and o.y == y for o in env.robots if o is not self)
 
     def _occupied_by_shelf(self, x: int, y: int, env: Any) -> bool:
         """Check if position is occupied by a shelf that should block movement.
@@ -125,18 +120,11 @@ class Robot:
 
     def _pick_shelf_here(self, env: Any) -> Tuple[float, str]:
         for shelf in env.shelves:
-            same_cell = shelf["x"] == self.x and shelf["y"] == self.y
-            if not same_cell:
+            if shelf["x"] != self.x or shelf["y"] != self.y or shelf["carried"]:
                 continue
-            if shelf["carried"]:
-                continue
-
             shelf["carried"] = True
             self.carrying = shelf
-            if shelf["requested"]:
-                return 5.0, "PICKED"
-            return 0.0, "PICKED"
-
+            return (5.0 if shelf["requested"] else 0.0), "PICKED"
         return -0.05, "NOOP"
 
     def _deliver_shelf(self, env: Any) -> Tuple[float, str]:

@@ -916,137 +916,198 @@ if (algoCanvas) {
     { x: 4, y: 6 }, { x: 3, y: 6 }, { x: 2, y: 7 }, { x: 1, y: 7 }, { x: 1, y: 8 }
   ];
 
-  // Symmetry Reduction Demo
-  // Accurately show how agents are grouped into orbits by role and canonicalized
+  // Symmetry Reduction Demo - Comprehensive Step-by-Step Walkthrough
+  // Each scenario represents a visual step in explaining how symmetry reduction works
   symmetryScenarios = [
     {
-      // Scenario 1: Initial state with labeled agents
+      step: 1,
+      title: "STEP 1:  The Warehouse State",
+      subtitle: "4 agents with different roles on the grid",
       agents: [
-        { x: 2, y: 3, role: 'idle', id: 'A', dir: '→' },
-        { x: 6, y: 5, role: 'idle', id: 'B', dir: '↓' },
-        { x: 4, y: 2, role: 'idle', id: 'C', dir: '←' },
+        { x: 2, y: 2, role: 'idle',     id: 'A', dir: 0, dirLabel: '→' },
+        { x: 7, y: 2, role: 'idle',     id: 'B', dir: 2, dirLabel: '←' },
+        { x: 2, y: 7, role: 'carrying', id: 'C', dir: 3, dirLabel: '↑' },
+        { x: 7, y: 7, role: 'carrying', id: 'D', dir: 1, dirLabel: '↓' },
       ],
-      text: "Original State with 3 Idle Agents",
-      caption: "State 1: Three idle agents → A at (2,3), B at (6,5), C at (4,2) with directions.",
+      infoLines: [
+        { text: "Agent A  →  position (2,2), facing →, IDLE", color: "#4fc3f7" },
+        { text: "Agent B  →  position (7,2), facing ←, IDLE", color: "#4fc3f7" },
+        { text: "Agent C  →  position (2,7), facing ↑, CARRYING", color: "#f08c3a" },
+        { text: "Agent D  →  position (7,7), facing ↓, CARRYING", color: "#f08c3a" },
+      ],
+      showGrid: true,
+      caption: "Step 1: A warehouse state with 4 agents — 2 idle (blue) and 2 carrying a shelf (orange). Agent identity labels are A, B, C, D.",
     },
     {
-      // Scenario 2: Detect role orbits
+      step: 2,
+      title: "STEP 2:  Detect Agent Roles",
+      subtitle: "Group agents by their functional role",
       agents: [
-        { x: 2, y: 3, role: 'idle', id: 'A', dir: '→', highlight: true },
-        { x: 6, y: 5, role: 'idle', id: 'B', dir: '↓', highlight: true },
-        { x: 4, y: 2, role: 'idle', id: 'C', dir: '←', highlight: true },
+        { x: 2, y: 2, role: 'idle',     id: 'A', dir: 0, dirLabel: '→', roleHighlight: true },
+        { x: 7, y: 2, role: 'idle',     id: 'B', dir: 2, dirLabel: '←', roleHighlight: true },
+        { x: 2, y: 7, role: 'carrying', id: 'C', dir: 3, dirLabel: '↑', roleHighlight: true },
+        { x: 7, y: 7, role: 'carrying', id: 'D', dir: 1, dirLabel: '↓', roleHighlight: true },
       ],
-      text: "Orbit Detection: All roles = IDLE (0,0)",
-      caption: "Group agents by role type. All agents idle → Single orbit (green highlight).",
+      infoLines: [
+        { text: "_agent_role() returns:", color: "#fff", bold: true },
+        { text: "  A → (0, 0)  not carrying", color: "#4fc3f7" },
+        { text: "  B → (0, 0)  not carrying", color: "#4fc3f7" },
+        { text: "  C → (1, 1)  carrying requested", color: "#f08c3a" },
+        { text: "  D → (1, 1)  carrying requested", color: "#f08c3a" },
+      ],
+      showGrid: true,
+      caption: "Step 2: The _agent_role() function encodes each agent's role. Agents with the same role are functionally interchangeable.",
     },
     {
-      // Scenario 3: Extract tuples
+      step: 3,
+      title: "STEP 3:  Form Role Orbits",
+      subtitle: "detect_role_orbits() groups same-role agents",
       agents: [
-        { x: 2, y: 3, role: 'idle', id: 'A', dir: '→', showTuple: true },
-        { x: 6, y: 5, role: 'idle', id: 'B', dir: '↓', showTuple: true },
-        { x: 4, y: 2, role: 'idle', id: 'C', dir: '←', showTuple: true },
+        { x: 2, y: 2, role: 'idle',     id: 'A', dir: 0, dirLabel: '→', orbit: 0 },
+        { x: 7, y: 2, role: 'idle',     id: 'B', dir: 2, dirLabel: '←', orbit: 0 },
+        { x: 2, y: 7, role: 'carrying', id: 'C', dir: 3, dirLabel: '↑', orbit: 1 },
+        { x: 7, y: 7, role: 'carrying', id: 'D', dir: 1, dirLabel: '↓', orbit: 1 },
       ],
-      text: "Extract Tuples: (x, y, dir, role)",
-      tuples: ["A: (2, 3, 0, 0)", "B: (6, 5, 2, 0)", "C: (4, 2, 1, 0)"],
-      caption: "Encode each agent as tuple (x-pos, y-pos, direction-code, role-code).",
+      orbits: [
+        { label: "Orbit 0  (IDLE)", agents: ["A","B"], color: "#4fc3f7" },
+        { label: "Orbit 1  (CARRYING)", agents: ["C","D"], color: "#f08c3a" },
+      ],
+      infoLines: [
+        { text: "detect_role_orbits() →", color: "#fff", bold: true },
+        { text: "", color: "#fff" },
+        { text: "  Orbit 0: [A, B]", color: "#4fc3f7" },
+        { text: "    role = (0,0) = idle", color: "#4fc3f7" },
+        { text: "", color: "#fff" },
+        { text: "  Orbit 1: [C, D]", color: "#f08c3a" },
+        { text: "    role = (1,1) = carrying", color: "#f08c3a" },
+      ],
+      showGrid: true,
+      showOrbitLinks: true,
+      caption: "Step 3: detect_role_orbits() partitions agents into orbits. Agents within the same orbit can be permuted without changing the system state.",
     },
     {
-      // Scenario 4: Sort tuples
+      step: 4,
+      title: "STEP 4:  Encode Agent Tuples",
+      subtitle: "Each agent → (x, y, direction, role_flag)",
       agents: [
-        { x: 2, y: 3, role: 'idle', id: '1', dir: '→', canonical: true },
-        { x: 4, y: 2, role: 'idle', id: '2', dir: '←', canonical: true },
-        { x: 6, y: 5, role: 'idle', id: '3', dir: '↓', canonical: true },
+        { x: 2, y: 2, role: 'idle',     id: 'A', dir: 0, dirLabel: '→', orbit: 0, showTuple: true },
+        { x: 7, y: 2, role: 'idle',     id: 'B', dir: 2, dirLabel: '←', orbit: 0, showTuple: true },
+        { x: 2, y: 7, role: 'carrying', id: 'C', dir: 3, dirLabel: '↑', orbit: 1, showTuple: true },
+        { x: 7, y: 7, role: 'carrying', id: 'D', dir: 1, dirLabel: '↓', orbit: 1, showTuple: true },
       ],
-      text: "Canonical Ordering (Sorted)",
-      tuples: ["(2, 3, 0, 0)", "(4, 2, 1, 0)", "(6, 5, 2, 0)"],
-      sorted: true,
-      caption: "Sort tuples lexicographically → Canonical representative for quotient state.",
+      infoLines: [
+        { text: "AgentKey = (x, y, dir, role)", color: "#fff", bold: true },
+        { text: "", color: "#fff" },
+        { text: "Orbit 0 (unsorted):", color: "#4fc3f7", bold: true },
+        { text: "  A → (2, 2, 0, 0)", color: "#4fc3f7" },
+        { text: "  B → (7, 2, 2, 0)", color: "#4fc3f7" },
+        { text: "", color: "#fff" },
+        { text: "Orbit 1 (unsorted):", color: "#f08c3a", bold: true },
+        { text: "  C → (2, 7, 3, 1)", color: "#f08c3a" },
+        { text: "  D → (7, 7, 1, 1)", color: "#f08c3a" },
+      ],
+      showGrid: true,
+      caption: "Step 4: Each agent is encoded as a 4-tuple: (x-position, y-position, direction-code, carrying-requested-flag).",
     },
     {
-      // Scenario 5: Different permutation (State 2)
+      step: 5,
+      title: "STEP 5:  Sort & Canonicalize",
+      subtitle: "canonicalize_agents() sorts tuples within each orbit",
       agents: [
-        { x: 4, y: 2, role: 'idle', id: 'A', dir: '←' },
-        { x: 2, y: 3, role: 'idle', id: 'B', dir: '→' },
-        { x: 6, y: 5, role: 'idle', id: 'C', dir: '↓' },
+        { x: 2, y: 2, role: 'idle',     id: '①', dir: 0, dirLabel: '→', orbit: 0, canonical: true },
+        { x: 7, y: 2, role: 'idle',     id: '②', dir: 2, dirLabel: '←', orbit: 0, canonical: true },
+        { x: 2, y: 7, role: 'carrying', id: '①', dir: 3, dirLabel: '↑', orbit: 1, canonical: true },
+        { x: 7, y: 7, role: 'carrying', id: '②', dir: 1, dirLabel: '↓', orbit: 1, canonical: true },
       ],
-      text: "Different Agent Labels (Permutation)",
-      caption: "State 2: Same positions, different naming → A(4,2), B(2,3), C(6,5).",
+      infoLines: [
+        { text: "sorted(orbit_tuples) →", color: "#66bb6a", bold: true },
+        { text: "", color: "#fff" },
+        { text: "Orbit 0 (sorted lex):", color: "#4fc3f7", bold: true },
+        { text: "  (2, 2, 0, 0)  ← was A", color: "#66bb6a" },
+        { text: "  (7, 2, 2, 0)  ← was B", color: "#66bb6a" },
+        { text: "", color: "#fff" },
+        { text: "Orbit 1 (sorted lex):", color: "#f08c3a", bold: true },
+        { text: "  (2, 7, 3, 1)  ← was C", color: "#66bb6a" },
+        { text: "  (7, 7, 1, 1)  ← was D", color: "#66bb6a" },
+      ],
+      showGrid: true,
+      showCanonicalBadge: true,
+      caption: "Step 5: Tuples are sorted lexicographically within each orbit. Agent labels (A,B,C,D) are discarded — only positions and roles matter now.",
     },
     {
-      // Scenario 6: Same orbit
-      agents: [
-        { x: 4, y: 2, role: 'idle', id: 'A', dir: '←', highlight: true },
-        { x: 2, y: 3, role: 'idle', id: 'B', dir: '→', highlight: true },
-        { x: 6, y: 5, role: 'idle', id: 'C', dir: '↓', highlight: true },
-      ],
-      text: "Orbit Detection: All roles = IDLE (0,0)",
-      caption: "Re-check orbits. All idle again → Same single orbit (green highlight).",
+      step: 6,
+      title: "STEP 6:  The Canonical Key",
+      subtitle: "StateKey = tuple of sorted orbit tuples",
+      agents: [],
+      showCanonicalKey: true,
+      canonicalKey: {
+        orbit0: "((2,2,0,0), (7,2,2,0))",
+        orbit1: "((2,7,3,1), (7,7,1,1))",
+        full: "(((2,2,0,0),(7,2,2,0)), ((2,7,3,1),(7,7,1,1)))",
+      },
+      infoLines: [],
+      caption: "Step 6: The canonical StateKey is a tuple of sorted orbit tuples. This is the unique representative for all equivalent permutations of this physical state.",
     },
     {
-      // Scenario 7: Extract and sort - same result
+      step: 7,
+      title: "STEP 7:  A Different Permutation",
+      subtitle: "Same positions, different agent labels",
       agents: [
-        { x: 2, y: 3, role: 'idle', id: '1', dir: '→', canonical: true },
-        { x: 4, y: 2, role: 'idle', id: '2', dir: '←', canonical: true },
-        { x: 6, y: 5, role: 'idle', id: '3', dir: '↓', canonical: true },
+        { x: 7, y: 2, role: 'idle',     id: 'A', dir: 2, dirLabel: '←', orbit: 0 },
+        { x: 2, y: 2, role: 'idle',     id: 'B', dir: 0, dirLabel: '→', orbit: 0 },
+        { x: 7, y: 7, role: 'carrying', id: 'C', dir: 1, dirLabel: '↓', orbit: 1 },
+        { x: 2, y: 7, role: 'carrying', id: 'D', dir: 3, dirLabel: '↑', orbit: 1 },
       ],
-      text: "SAME Canonical Form After Sort",
-      tuples: ["(2, 3, 0, 0)", "(4, 2, 1, 0)", "(6, 5, 2, 0)"],
-      sorted: true,
-      caption: "Extract & sort → IDENTICAL canonical form as State 1!",
+      infoLines: [
+        { text: "A different labeling:", color: "#fff", bold: true },
+        { text: "", color: "#fff" },
+        { text: "  A is now at (7,2) ←", color: "#4fc3f7" },
+        { text: "  B is now at (2,2) →", color: "#4fc3f7" },
+        { text: "  C is now at (7,7) ↓", color: "#f08c3a" },
+        { text: "  D is now at (2,7) ↑", color: "#f08c3a" },
+        { text: "", color: "#fff" },
+        { text: "Labels swapped within roles!", color: "#ffd166", bold: true },
+      ],
+      showGrid: true,
+      caption: "Step 7: Consider a different permutation — agent labels A↔B and C↔D are swapped, but the same (x,y) positions are occupied by the same roles.",
     },
     {
-      // Scenario 8: Equivalence
-      agents: [
-        { x: 4, y: 4, role: 'idle', id: '✓', size: 'large' },
-      ],
-      text: "State 1 ≡ State 2 (Symmetry Detected)",
-      stateCount: "3! = 6 permutations",
-      quotientCount: "→ 1 quotient state",
-      caption: "Both states are symmetric permutations → Mapped to same quotient state!",
+      step: 8,
+      title: "STEP 8:  Same Canonical Key!",
+      subtitle: "Both states map to identical quotient representative",
+      agents: [],
+      showEquivalence: true,
+      stateA: {
+        label: "State 1 (original labels)",
+        tuples: ["A:(2,2,0,0), B:(7,2,2,0)", "C:(2,7,3,1), D:(7,7,1,1)"],
+      },
+      stateB: {
+        label: "State 2 (swapped labels)",
+        tuples: ["A:(7,2,2,0), B:(2,2,0,0)", "C:(7,7,1,1), D:(2,7,3,1)"],
+      },
+      canonicalResult: "(((2,2,0,0),(7,2,2,0)), ((2,7,3,1),(7,7,1,1)))",
+      infoLines: [],
+      caption: "Step 8: After sorting within orbits, BOTH states produce the SAME canonical key! They are symmetric permutations mapped to one quotient state.",
     },
     {
-      // Scenario 9: Mixed roles example
-      agents: [
-        { x: 2, y: 2, role: 'idle', id: 'A', dir: '→' },
-        { x: 6, y: 2, role: 'idle', id: 'B', dir: '←' },
-        { x: 2, y: 6, role: 'carrying', id: 'C', dir: '↑' },
-        { x: 6, y: 6, role: 'carrying', id: 'D', dir: '↓' },
-      ],
-      text: "Multi-Role Scenario",
-      caption: "New state: 2 idle agents (blue) + 2 carrying agents (orange).",
-    },
-    {
-      // Scenario 10: Separate orbits
-      agents: [
-        { x: 2, y: 2, role: 'idle', id: 'A', dir: '→', orbitA: true },
-        { x: 6, y: 2, role: 'idle', id: 'B', dir: '←', orbitA: true },
-        { x: 2, y: 6, role: 'carrying', id: 'C', dir: '↑', orbitB: true },
-        { x: 6, y: 6, role: 'carrying', id: 'D', dir: '↓', orbitB: true },
-      ],
-      text: "Orbit 1 (IDLE) | Orbit 2 (CARRYING)",
-      caption: "Different roles → Two separate orbits. Blue border = idle, orange = carrying.",
-    },
-    {
-      // Scenario 11: Canonicalize each orbit
-      agents: [
-        { x: 2, y: 2, role: 'idle', id: '1', dir: '→', orbitA: true, canonical: true },
-        { x: 6, y: 2, role: 'idle', id: '2', dir: '←', orbitA: true, canonical: true },
-        { x: 2, y: 6, role: 'carrying', id: '1', dir: '↑', orbitB: true, canonical: true },
-        { x: 6, y: 6, role: 'carrying', id: '2', dir: '↓', orbitB: true, canonical: true },
-      ],
-      text: "Canonicalize Each Orbit Independently",
-      tuples: ["Idle orbit: [(2,2,0,0), (6,2,1,0)]", "Carry orbit: [(2,6,3,1), (6,6,2,1)]"],
-      caption: "Sort tuples within each orbit separately to get canonical form.",
-    },
-    {
-      // Scenario 12: State space reduction
-      agents: [
-        { x: 4, y: 4, role: 'idle', id: '✓', size: 'large' },
-      ],
-      text: "Symmetry Reduction Achieved",
-      stateCount: "2! × 2! = 4 permutations",
-      quotientCount: "→ 1 quotient state",
-      caption: "4 possible labelings of (2 idle + 2 carrying) → Reduced to 1 quotient state!",
+      step: 9,
+      title: "STEP 9:  State Space Reduction",
+      subtitle: "Massive savings for verification",
+      agents: [],
+      showReduction: true,
+      reductionData: {
+        originalLabel: "With agent labels (original)",
+        reducedLabel: "Quotient states (canonical)",
+        examples: [
+          { agents: 2, roles: "2 idle", perms: "2! = 2", quotient: "1" },
+          { agents: 3, roles: "3 idle", perms: "3! = 6", quotient: "1" },
+          { agents: 4, roles: "2 idle + 2 carry", perms: "2! × 2! = 4", quotient: "1" },
+          { agents: 6, roles: "3 idle + 3 carry", perms: "3! × 3! = 36", quotient: "1" },
+          { agents: 10, roles: "5 idle + 5 carry", perms: "5! × 5! = 14400", quotient: "1" },
+        ],
+      },
+      infoLines: [],
+      caption: "Step 9: Symmetry reduction dramatically shrinks the state space. N! labeled states per orbit map to just 1 quotient state — exponential savings!",
     },
   ];
 
@@ -1505,6 +1566,28 @@ if (algoCanvas) {
     const robots = [{ x: 1, y: 2, id: "R1" }, { x: 1, y: 5, id: "R2" }, { x: 1, y: 8, id: "R3" }];
     const shelves = [{ x: 8, y: 2, id: "S1" }, { x: 8, y: 5, id: "S2" }, { x: 8, y: 8, id: "S3" }];
 
+    // Matrix panel shell (drawn first so scene markers are not dimmed by overlay alpha)
+    const panelW = Math.min(240, cell * 6.7);
+    const panelH = 132;
+    const panelX = Math.max(offsetX + 6, offsetX + grid * cell - panelW - 6);
+    const panelY = offsetY + 6;
+    ctx.fillStyle = "rgba(12,18,27,0.88)";
+    ctx.fillRect(panelX, panelY, panelW, panelH);
+    ctx.strokeStyle = "rgba(255,255,255,0.15)";
+    ctx.strokeRect(panelX, panelY, panelW, panelH);
+
+    // Draw selected assignments as lines
+    stage.chosen.forEach(([ri, si]) => {
+      const pr = toCell(robots[ri].x, robots[ri].y);
+      const ps = toCell(shelves[si].x, shelves[si].y);
+      ctx.strokeStyle = "#ffd166";
+      ctx.lineWidth = 2.8;
+      ctx.beginPath();
+      ctx.moveTo(pr.x + cell/2, pr.y + cell/2);
+      ctx.lineTo(ps.x + cell/2, ps.y + cell/2);
+      ctx.stroke();
+    });
+
     robots.forEach((r) => {
       const p = toCell(r.x, r.y);
       ctx.fillStyle = "#4fc3f7";
@@ -1529,27 +1612,7 @@ if (algoCanvas) {
       ctx.fillText(s.id, p.x + cell/2, p.y + cell/2);
     });
 
-    // Draw selected assignments as lines
-    stage.chosen.forEach(([ri, si]) => {
-      const pr = toCell(robots[ri].x, robots[ri].y);
-      const ps = toCell(shelves[si].x, shelves[si].y);
-      ctx.strokeStyle = "#ffd166";
-      ctx.lineWidth = 2.8;
-      ctx.beginPath();
-      ctx.moveTo(pr.x + cell/2, pr.y + cell/2);
-      ctx.lineTo(ps.x + cell/2, ps.y + cell/2);
-      ctx.stroke();
-    });
-
-    // Matrix panel
-    const panelW = Math.min(240, cell * 6.7);
-    const panelH = 132;
-    const panelX = Math.max(offsetX + 6, offsetX + grid * cell - panelW - 6);
-    const panelY = offsetY + 6;
-    ctx.fillStyle = "rgba(12,18,27,0.88)";
-    ctx.fillRect(panelX, panelY, panelW, panelH);
-    ctx.strokeStyle = "rgba(255,255,255,0.15)";
-    ctx.strokeRect(panelX, panelY, panelW, panelH);
+    // Matrix panel content
     ctx.fillStyle = "rgba(255,255,255,0.95)";
     ctx.font = "bold 12px monospace";
     ctx.textAlign = "left";
@@ -1582,139 +1645,60 @@ if (algoCanvas) {
     const scenarioIndex = tick % symmetryScenarios.length;
     const scenario = symmetryScenarios[scenarioIndex];
     
-    // Draw agents
+    // Draw grid for grid-based scenarios
+    if (scenario.showGrid && scenario.agents.length > 0) {
+      drawGrid();
+    }
+    
+    // Draw agents on grid
     scenario.agents.forEach((agent) => {
       const p = toCell(agent.x, agent.y);
-      
-      // Determine color based on role
       let color = agent.role === 'carrying' ? '#f08c3a' : '#4fc3f7';
       
-      // Draw highlighting for orbit grouping
-      if (agent.highlight) {
-        ctx.fillStyle = 'rgba(102,187,106,0.3)';
-        ctx.fillRect(p.x - 2, p.y - 2, cell + 4, cell + 4);
+      // Orbit highlight background
+      if (agent.orbit !== undefined) {
+        const orbitColor = agent.orbit === 0 ? 'rgba(79,195,247,0.15)' : 'rgba(240,140,58,0.15)';
+        ctx.fillStyle = orbitColor;
+        ctx.fillRect(p.x + 1, p.y + 1, cell - 2, cell - 2);
+      }
+      if (agent.roleHighlight) {
+        const hlColor = agent.role === 'carrying' ? 'rgba(240,140,58,0.2)' : 'rgba(79,195,247,0.2)';
+        ctx.fillStyle = hlColor;
+        ctx.fillRect(p.x + 1, p.y + 1, cell - 2, cell - 2);
       }
       
-      // Draw orbit borders
-      if (agent.orbitA) {
-        ctx.strokeStyle = '#4fc3f7';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(p.x - 2, p.y - 2, cell + 4, cell + 4);
-      }
-      
-      if (agent.orbitB) {
-        ctx.strokeStyle = '#f08c3a';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(p.x - 2, p.y - 2, cell + 4, cell + 4);
-      }
-      
-      // Draw agent circle
-      ctx.fillStyle = color;
+      // Agent circle
+      const radius = getAgentRadius(agent.canonical ? 0.42 : 0.45);
+      ctx.fillStyle = agent.canonical ? '#66bb6a' : color;
       ctx.beginPath();
-      ctx.arc(p.x + cell/2, p.y + cell/2, agent.size === "large" ? 18 : 15, 0, Math.PI * 2);
+      ctx.arc(p.x + cell/2, p.y + cell/2, radius, 0, Math.PI * 2);
       ctx.fill();
-      
-      // Draw direction arrow or ID
-      ctx.fillStyle = '#fff';
-      ctx.font = agent.canonical ? 'bold 20px monospace' : 'bold 20px monospace';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      
-      if (agent.canonical) {
-        ctx.fillStyle = '#66bb6a';
-      }
-      
-      ctx.fillText(agent.id, p.x + cell/2, p.y + cell/2);
-      
-      // Draw direction below agent for tuple scenarios
-      if (agent.dir && agent.showTuple) {
-        ctx.fillStyle = 'rgba(255,255,255,0.6)';
-        ctx.font = '11px monospace';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'top';
-        ctx.fillText(agent.dir, p.x + cell/2, p.y + cell + 3);
-      }
-    });
-    
-    // Draw text label (for role info)
-    if (scenario.text) {
-      ctx.fillStyle = 'rgba(255,255,255,0.95)';
-      ctx.font = "bold 13px monospace";
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'top';
-      ctx.fillText(scenario.text, canvasWidth / 2, 20);
-    }
-    
-    // Draw tuples - positioned in lower section
-    if (scenario.tuples) {
-      ctx.fillStyle = scenario.sorted ? '#66bb6a' : 'rgba(255,255,255,0.85)';
-      ctx.font = "14px monospace";
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'top';
-      
-      const startX = 80;
-      const startY = 450;
-      
-      scenario.tuples.forEach((tuple, i) => {
-        const y = startY + i * 38;
-        ctx.fillText(tuple, startX, y);
-      });
-      
-      if (scenario.sorted) {
-        // Draw "sorted" arrow and label
-        ctx.strokeStyle = '#66bb6a';
-        ctx.lineWidth = 4;
-        ctx.beginPath();
-        ctx.moveTo(50, startY - 25);
-        ctx.lineTo(50, startY - 5);
-        ctx.stroke();
-        
-        // Arrowhead
-        ctx.beginPath();
-        ctx.moveTo(50, startY - 5);
-        ctx.lineTo(44, startY - 15);
-        ctx.lineTo(56, startY - 15);
-        ctx.closePath();
-        ctx.fillStyle = '#66bb6a';
-        ctx.fill();
-        
-        ctx.fillStyle = '#66bb6a';
-        ctx.font = "bold 13px monospace";
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'bottom';
-        ctx.fillText('SORTED', 50, startY - 32);
-      }
-    }
-    
-    // Draw state space reduction info
-    if (scenario.stateCount) {
-      ctx.fillStyle = 'rgba(255,255,255,0.95)';
-      ctx.font = "bold 16px monospace";
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(scenario.stateCount, canvasWidth / 2, 200);
-      
-      // Draw arrow
-      ctx.strokeStyle = '#66bb6a';
-      ctx.lineWidth = 5;
-      ctx.beginPath();
-      ctx.moveTo(canvasWidth / 2, 230);
-      ctx.lineTo(canvasWidth / 2, 280);
+      ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+      ctx.lineWidth = 1.5;
       ctx.stroke();
       
-      // Draw arrowhead
-      ctx.beginPath();
-      ctx.moveTo(canvasWidth / 2, 280);
-      ctx.lineTo(canvasWidth / 2 - 12, 265);
-      ctx.lineTo(canvasWidth / 2 + 12, 265);
-      ctx.closePath();
-      ctx.fillStyle = '#66bb6a';
-      ctx.fill();
-      
-      ctx.fillStyle = '#66bb6a';
-      ctx.font = "bold 16px monospace";
-      ctx.fillText(scenario.quotientCount, canvasWidth / 2, 315);
+      // Agent label
+      ctx.fillStyle = '#fff';
+      ctx.font = `bold ${Math.max(10, Math.floor(cell * 0.32))}px monospace`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(agent.id, p.x + cell/2, p.y + cell/2);
+    });
+    
+    // Draw title
+    if (scenario.title) {
+      ctx.fillStyle = 'rgba(255,255,255,0.95)';
+      ctx.font = `bold ${Math.max(11, Math.floor(canvasWidth * 0.022))}px monospace`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'top';
+      ctx.fillText(scenario.title, canvasWidth / 2, 8);
     }
+
+    // Step indicator
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.font = '10px monospace';
+    ctx.textAlign = 'right';
+    ctx.fillText(`${scenario.step}/${symmetryScenarios.length}`, canvasWidth - 10, 12);
     
     algoCaption.textContent = scenario.caption;
   }
@@ -2038,8 +2022,16 @@ if (algoCanvas) {
     ctx.fillStyle = "#0f1318";
     ctx.fillRect(0, 0, canvasWidth, canvasHeight);
     
-    if (algoMode !== "symmetry") {
-      drawGrid();
+    if (algoMode !== "quotient") {
+      // Draw grid (symmetry mode draws selectively based on scenario)
+      if (algoMode === "symmetry") {
+        const sc = symmetryScenarios[tick % symmetryScenarios.length];
+        if (sc && sc.showGrid && sc.agents.length > 0) {
+          drawGrid();
+        }
+      } else {
+        drawGrid();
+      }
     }
     
     if (algoMode === "astar") {
@@ -2072,7 +2064,7 @@ if (algoCanvas) {
                   algoMode === "reservation" ? 2200 :
                   algoMode === "edge-swap" ? 2100 :
                   algoMode === "assignment" ? 2300 :
-                  algoMode === "symmetry" ? 6000 : 
+                  algoMode === "symmetry" ? 5000 : 
                   (algoMode === "prioritized" ? 3000 : 
                   (algoMode === "quotient" ? 3500 : 
                   (algoMode === "verification" ? 3000 : 
@@ -2153,7 +2145,7 @@ const symmetryCanvas = document.getElementById("symmetryCanvas");
 const symmetryCaption = document.getElementById("symmetryCaption");
 const symmetrySection = document.getElementById("symmetry");
 const symmetryButtons = symmetrySection
-  ? symmetrySection.querySelectorAll("[data-algo='symmetry'], [data-algo='quotient'], [data-algo='quotient-key']")
+  ? symmetrySection.querySelectorAll("[data-algo='symmetry'], [data-algo='quotient-key']")
   : [];
 const symmetryPauseButton = symmetrySection ? symmetrySection.querySelector("[data-control='symmetry-pause']") : null;
 const symmetrySurface = symmetryCanvas ? createHiResCanvas(symmetryCanvas) : null;
@@ -2223,155 +2215,514 @@ if (symmetryCanvas) {
   
   function sRenderSymmetry() {
     sctx.clearRect(0, 0, sWidth, sHeight);
-    sctx.fillStyle = "#0f1318";
+    sctx.fillStyle = "#0a0e14";
     sctx.fillRect(0, 0, sWidth, sHeight);
-    
+
     const scenarioIndex = sTickCount % symmetryScenarios.length;
     const scenario = symmetryScenarios[scenarioIndex];
-    
-    // Draw agents
-    scenario.agents.forEach((agent) => {
-      const p = sToCell(agent.x, agent.y);
-      
-      let color = agent.role === 'carrying' ? '#f08c3a' : '#4fc3f7';
-      
-      if (agent.highlight) {
-        sctx.fillStyle = 'rgba(102,187,106,0.3)';
-        sctx.fillRect(p.x - 2, p.y - 2, scell + 4, scell + 4);
+
+    // Update step indicator dots
+    const indicator = document.getElementById('symmetryStepIndicator');
+    if (indicator) {
+      if (indicator.childElementCount !== symmetryScenarios.length) {
+        indicator.innerHTML = '';
+        symmetryScenarios.forEach((_, i) => {
+          const dot = document.createElement('span');
+          dot.className = 'step-dot';
+          dot.addEventListener('click', () => {
+            sTickCount = i;
+            sLastTick = performance.now();
+            sRender();
+          });
+          indicator.appendChild(dot);
+        });
       }
-      
-      if (agent.orbitA) {
-        sctx.strokeStyle = '#4fc3f7';
-        sctx.lineWidth = 2;
-        sctx.strokeRect(p.x - 2, p.y - 2, scell + 4, scell + 4);
+      indicator.querySelectorAll('.step-dot').forEach((dot, i) => {
+        dot.classList.toggle('active', i === scenarioIndex);
+      });
+    }
+
+    // Layout constants — adapt to canvas dimensions
+    const margin = Math.max(10, sWidth * 0.02);
+    const headerH = Math.max(44, sHeight * 0.1);
+    const gridAreaW = Math.floor(sWidth * 0.52);
+    const infoPanelX = gridAreaW + margin;
+    const infoPanelW = sWidth - infoPanelX - margin;
+
+    // ── Header ──
+    // Title
+    sctx.fillStyle = '#ffffff';
+    sctx.font = `bold ${Math.max(12, Math.floor(sWidth * 0.02))}px monospace`;
+    sctx.textAlign = 'left';
+    sctx.textBaseline = 'top';
+    sctx.fillText(scenario.title, margin, margin);
+
+    // Subtitle
+    if (scenario.subtitle) {
+      sctx.fillStyle = 'rgba(255,255,255,0.55)';
+      sctx.font = `${Math.max(10, Math.floor(sWidth * 0.016))}px monospace`;
+      sctx.fillText(scenario.subtitle, margin, margin + Math.max(16, sHeight * 0.04));
+    }
+
+    // Step counter badge (top-right)
+    const badgeText = `${scenario.step} / ${symmetryScenarios.length}`;
+    sctx.font = `bold ${Math.max(10, Math.floor(sWidth * 0.016))}px monospace`;
+    const badgeW = sctx.measureText(badgeText).width + 16;
+    const badgeX = sWidth - margin - badgeW;
+    const badgeY = margin;
+    sctx.fillStyle = 'rgba(49,130,206,0.25)';
+    sctx.fillRect(badgeX, badgeY, badgeW, 22);
+    sctx.strokeStyle = 'rgba(49,130,206,0.6)';
+    sctx.lineWidth = 1;
+    sctx.strokeRect(badgeX, badgeY, badgeW, 22);
+    sctx.fillStyle = '#58a6ff';
+    sctx.textAlign = 'center';
+    sctx.fillText(badgeText, badgeX + badgeW / 2, badgeY + 5);
+
+    // ── Grid-based scenarios (steps 1-5, 7) ──
+    if (scenario.showGrid && scenario.agents.length > 0) {
+      const gridTop = headerH + margin;
+      const gridSize = 10;
+      const availH = sHeight - gridTop - margin;
+      const availW = gridAreaW - margin * 2;
+      const gridCell = Math.max(14, Math.min(Math.floor(availW / gridSize), Math.floor(availH / gridSize)));
+      const gridW = gridSize * gridCell;
+      const gridH = gridSize * gridCell;
+      const gx = margin + (availW - gridW) / 2;
+      const gy = gridTop + (availH - gridH) / 2;
+
+      // Draw grid lines
+      sctx.strokeStyle = 'rgba(255,255,255,0.06)';
+      sctx.lineWidth = 1;
+      for (let i = 0; i <= gridSize; i++) {
+        sctx.beginPath();
+        sctx.moveTo(gx + i * gridCell, gy);
+        sctx.lineTo(gx + i * gridCell, gy + gridH);
+        sctx.stroke();
+        sctx.beginPath();
+        sctx.moveTo(gx, gy + i * gridCell);
+        sctx.lineTo(gx + gridW, gy + i * gridCell);
+        sctx.stroke();
       }
-      
-      if (agent.orbitB) {
-        sctx.strokeStyle = '#f08c3a';
-        sctx.lineWidth = 2;
-        sctx.strokeRect(p.x - 2, p.y - 2, scell + 4, scell + 4);
+
+      // Draw orbit connection lines (step 3)
+      if (scenario.showOrbitLinks && scenario.orbits) {
+        scenario.orbits.forEach((orbit) => {
+          const orbitAgents = scenario.agents.filter(a => orbit.agents.includes(a.id));
+          if (orbitAgents.length >= 2) {
+            sctx.strokeStyle = orbit.color;
+            sctx.lineWidth = 2;
+            sctx.setLineDash([6, 4]);
+            for (let i = 0; i < orbitAgents.length - 1; i++) {
+              const a1 = orbitAgents[i];
+              const a2 = orbitAgents[i + 1];
+              const x1 = gx + a1.x * gridCell + gridCell / 2;
+              const y1 = gy + a1.y * gridCell + gridCell / 2;
+              const x2 = gx + a2.x * gridCell + gridCell / 2;
+              const y2 = gy + a2.y * gridCell + gridCell / 2;
+              sctx.beginPath();
+              sctx.moveTo(x1, y1);
+              sctx.lineTo(x2, y2);
+              sctx.stroke();
+            }
+            sctx.setLineDash([]);
+
+            // Orbit label near midpoint
+            const mid = orbitAgents[0];
+            const lx = gx + mid.x * gridCell + gridCell / 2;
+            const ly = gy + mid.y * gridCell - gridCell * 0.7;
+            sctx.fillStyle = orbit.color;
+            sctx.font = `bold ${Math.max(9, Math.floor(gridCell * 0.32))}px monospace`;
+            sctx.textAlign = 'center';
+            sctx.textBaseline = 'bottom';
+            sctx.fillText(orbit.label, lx, ly);
+          }
+        });
       }
-      
-      sctx.fillStyle = color;
-      sctx.beginPath();
-      sctx.arc(p.x + scell/2, p.y + scell/2, agent.size === "large" ? getSAgentRadius(0.6) : getSAgentRadius(), 0, Math.PI * 2);
-      sctx.fill();
-      
+
+      // Draw agents
+      scenario.agents.forEach((agent) => {
+        const ax = gx + agent.x * gridCell;
+        const ay = gy + agent.y * gridCell;
+        const cx = ax + gridCell / 2;
+        const cy = ay + gridCell / 2;
+        const color = agent.role === 'carrying' ? '#f08c3a' : '#4fc3f7';
+        const canonColor = '#66bb6a';
+
+        // Cell highlight for orbit membership
+        if (agent.orbit !== undefined) {
+          const oColor = agent.orbit === 0 ? 'rgba(79,195,247,0.12)' : 'rgba(240,140,58,0.12)';
+          sctx.fillStyle = oColor;
+          sctx.fillRect(ax + 1, ay + 1, gridCell - 2, gridCell - 2);
+          // Orbit border
+          sctx.strokeStyle = agent.orbit === 0 ? 'rgba(79,195,247,0.45)' : 'rgba(240,140,58,0.45)';
+          sctx.lineWidth = 1.5;
+          sctx.strokeRect(ax + 1, ay + 1, gridCell - 2, gridCell - 2);
+        }
+
+        if (agent.roleHighlight) {
+          const hlColor = agent.role === 'carrying' ? 'rgba(240,140,58,0.18)' : 'rgba(79,195,247,0.18)';
+          sctx.fillStyle = hlColor;
+          sctx.fillRect(ax + 1, ay + 1, gridCell - 2, gridCell - 2);
+        }
+
+        // Agent circle
+        const radius = Math.max(6, gridCell * 0.36);
+        sctx.fillStyle = agent.canonical ? canonColor : color;
+        sctx.beginPath();
+        sctx.arc(cx, cy, radius, 0, Math.PI * 2);
+        sctx.fill();
+        sctx.strokeStyle = 'rgba(255,255,255,0.65)';
+        sctx.lineWidth = 1.5;
+        sctx.stroke();
+
+        // Agent label
+        sctx.fillStyle = '#fff';
+        sctx.font = `bold ${Math.max(9, Math.floor(gridCell * 0.32))}px monospace`;
+        sctx.textAlign = 'center';
+        sctx.textBaseline = 'middle';
+        sctx.fillText(agent.id, cx, cy);
+
+        // Direction arrow above agent
+        if (agent.dirLabel) {
+          sctx.fillStyle = 'rgba(255,255,255,0.5)';
+          sctx.font = `${Math.max(8, Math.floor(gridCell * 0.28))}px monospace`;
+          sctx.textBaseline = 'bottom';
+          sctx.fillText(agent.dirLabel, cx, ay - 2);
+        }
+
+        // Tuple tooltip (step 4)
+        if (agent.showTuple) {
+          const tupleText = `(${agent.x},${agent.y},${agent.dir},${agent.role === 'carrying' ? 1 : 0})`;
+          sctx.fillStyle = 'rgba(255,255,255,0.7)';
+          sctx.font = `${Math.max(7, Math.floor(gridCell * 0.22))}px monospace`;
+          sctx.textAlign = 'center';
+          sctx.textBaseline = 'top';
+          sctx.fillText(tupleText, cx, ay + gridCell + 2);
+        }
+      });
+
+      // Canonical badge (step 5)
+      if (scenario.showCanonicalBadge) {
+        sctx.fillStyle = 'rgba(102,187,106,0.2)';
+        const bx = gx;
+        const by = gy + gridH + 6;
+        const bw = gridW;
+        const bh = 22;
+        sctx.fillRect(bx, by, bw, bh);
+        sctx.strokeStyle = '#66bb6a';
+        sctx.lineWidth = 1;
+        sctx.strokeRect(bx, by, bw, bh);
+        sctx.fillStyle = '#66bb6a';
+        sctx.font = `bold ${Math.max(9, Math.floor(gridCell * 0.28))}px monospace`;
+        sctx.textAlign = 'center';
+        sctx.textBaseline = 'middle';
+        sctx.fillText('★ Labels discarded — canonical form', bx + bw / 2, by + bh / 2);
+      }
+    }
+
+    // ── Info Panel (right side) ──
+    if (scenario.infoLines && scenario.infoLines.length > 0) {
+      const panelTop = headerH + margin;
+      const panelH = sHeight - panelTop - margin;
+      const lineH = Math.max(14, Math.min(18, panelH / (scenario.infoLines.length + 1)));
+      const fontSize = Math.max(9, Math.min(12, Math.floor(infoPanelW * 0.055)));
+
+      // Panel background
+      sctx.fillStyle = 'rgba(22,27,34,0.85)';
+      sctx.fillRect(infoPanelX - 4, panelTop - 4, infoPanelW + 8, panelH + 8);
+      sctx.strokeStyle = 'rgba(255,255,255,0.08)';
+      sctx.lineWidth = 1;
+      sctx.strokeRect(infoPanelX - 4, panelTop - 4, infoPanelW + 8, panelH + 8);
+
+      scenario.infoLines.forEach((line, i) => {
+        if (line.text === '') return;
+        sctx.fillStyle = line.color || 'rgba(255,255,255,0.8)';
+        sctx.font = `${line.bold ? 'bold ' : ''}${fontSize}px monospace`;
+        sctx.textAlign = 'left';
+        sctx.textBaseline = 'top';
+        sctx.fillText(line.text, infoPanelX + 8, panelTop + 8 + i * lineH);
+      });
+    }
+
+    // ── Canonical Key display (step 6) ──
+    if (scenario.showCanonicalKey && scenario.canonicalKey) {
+      const ck = scenario.canonicalKey;
+      const centerY = sHeight / 2;
+      const fontSize = Math.max(11, Math.floor(sWidth * 0.018));
+      const boxW = sWidth - margin * 4;
+      const boxX = margin * 2;
+
+      // Title
       sctx.fillStyle = '#fff';
-      sctx.font = "bold 13px monospace";
+      sctx.font = `bold ${fontSize + 2}px monospace`;
       sctx.textAlign = 'center';
       sctx.textBaseline = 'middle';
-      sctx.fillText(agent.id, p.x + scell/2, p.y + scell/2);
-    });
-    
-    if (scenario.text) {
-      sctx.fillStyle = 'rgba(255,255,255,0.95)';
-      sctx.font = "bold 13px monospace";
+      sctx.fillText('Canonical StateKey', sWidth / 2, headerH + 20);
+
+      // Orbit 0 box
+      const box1Y = headerH + 46;
+      const boxH = 42;
+      sctx.fillStyle = 'rgba(79,195,247,0.1)';
+      sctx.fillRect(boxX, box1Y, boxW, boxH);
+      sctx.strokeStyle = 'rgba(79,195,247,0.5)';
+      sctx.lineWidth = 1.5;
+      sctx.strokeRect(boxX, box1Y, boxW, boxH);
+      sctx.fillStyle = '#4fc3f7';
+      sctx.font = `bold ${fontSize}px monospace`;
+      sctx.textAlign = 'left';
+      sctx.fillText('Orbit 0 (idle):', boxX + 10, box1Y + 13);
+      sctx.fillStyle = '#e0e0e0';
+      sctx.font = `${fontSize}px monospace`;
+      sctx.fillText(ck.orbit0, boxX + 10, box1Y + 28);
+
+      // Orbit 1 box
+      const box2Y = box1Y + boxH + 12;
+      sctx.fillStyle = 'rgba(240,140,58,0.1)';
+      sctx.fillRect(boxX, box2Y, boxW, boxH);
+      sctx.strokeStyle = 'rgba(240,140,58,0.5)';
+      sctx.lineWidth = 1.5;
+      sctx.strokeRect(boxX, box2Y, boxW, boxH);
+      sctx.fillStyle = '#f08c3a';
+      sctx.font = `bold ${fontSize}px monospace`;
+      sctx.textAlign = 'left';
+      sctx.fillText('Orbit 1 (carry):', boxX + 10, box2Y + 13);
+      sctx.fillStyle = '#e0e0e0';
+      sctx.font = `${fontSize}px monospace`;
+      sctx.fillText(ck.orbit1, boxX + 10, box2Y + 28);
+
+      // Arrow down
+      const arrowY = box2Y + boxH + 16;
+      sctx.strokeStyle = '#66bb6a';
+      sctx.lineWidth = 3;
+      sctx.beginPath();
+      sctx.moveTo(sWidth / 2, arrowY);
+      sctx.lineTo(sWidth / 2, arrowY + 28);
+      sctx.stroke();
+      sctx.beginPath();
+      sctx.moveTo(sWidth / 2, arrowY + 28);
+      sctx.lineTo(sWidth / 2 - 8, arrowY + 18);
+      sctx.stroke();
+      sctx.beginPath();
+      sctx.moveTo(sWidth / 2, arrowY + 28);
+      sctx.lineTo(sWidth / 2 + 8, arrowY + 18);
+      sctx.stroke();
+
+      // Full key box
+      const fullY = arrowY + 36;
+      const fullH = 46;
+      sctx.fillStyle = 'rgba(102,187,106,0.12)';
+      sctx.fillRect(boxX, fullY, boxW, fullH);
+      sctx.strokeStyle = '#66bb6a';
+      sctx.lineWidth = 2;
+      sctx.strokeRect(boxX, fullY, boxW, fullH);
+      sctx.fillStyle = '#66bb6a';
+      sctx.font = `bold ${fontSize}px monospace`;
       sctx.textAlign = 'center';
-      sctx.textBaseline = 'top';
-      sctx.fillText(scenario.text, sWidth / 2, 20);
+      sctx.fillText('Full StateKey:', sWidth / 2, fullY + 14);
+      sctx.fillStyle = '#c8e6c9';
+      sctx.font = `${Math.max(9, fontSize - 1)}px monospace`;
+      sctx.fillText(ck.full, sWidth / 2, fullY + 31);
+
+      // Explanation note
+      const noteY = fullY + fullH + 18;
+      sctx.fillStyle = 'rgba(255,255,255,0.5)';
+      sctx.font = `${Math.max(9, fontSize - 2)}px monospace`;
+      sctx.textAlign = 'center';
+      sctx.fillText('Any permutation of agent labels within orbits', sWidth / 2, noteY);
+      sctx.fillText('produces this SAME canonical key.', sWidth / 2, noteY + 16);
     }
-    
-    if (scenario.tuples) {
-      sctx.fillStyle = scenario.sorted ? '#66bb6a' : 'rgba(255,255,255,0.85)';
-      sctx.font = "14px monospace";
+
+    // ── Equivalence comparison (step 8) ──
+    if (scenario.showEquivalence) {
+      const colW = (sWidth - margin * 3) / 2;
+      const topY = headerH + 10;
+      const boxH = Math.min(100, (sHeight - headerH - 100) * 0.45);
+      const fontSize = Math.max(9, Math.floor(sWidth * 0.016));
+
+      // State A box (left)
+      sctx.fillStyle = 'rgba(22,27,34,0.9)';
+      sctx.fillRect(margin, topY, colW, boxH);
+      sctx.strokeStyle = '#4fc3f7';
+      sctx.lineWidth = 1.5;
+      sctx.strokeRect(margin, topY, colW, boxH);
+      sctx.fillStyle = '#4fc3f7';
+      sctx.font = `bold ${fontSize + 1}px monospace`;
       sctx.textAlign = 'left';
       sctx.textBaseline = 'top';
-      
-      const startX = 80;
-      const startY = 450;
-      
-      scenario.tuples.forEach((tuple, i) => {
-        const y = startY + i * 38;
-        sctx.fillText(tuple, startX, y);
+      sctx.fillText(scenario.stateA.label, margin + 8, topY + 8);
+      sctx.fillStyle = 'rgba(255,255,255,0.8)';
+      sctx.font = `${fontSize}px monospace`;
+      scenario.stateA.tuples.forEach((t, i) => {
+        sctx.fillText(t, margin + 8, topY + 28 + i * (fontSize + 5));
       });
-      
-      if (scenario.sorted) {
-        sctx.strokeStyle = '#66bb6a';
-        sctx.lineWidth = 4;
-        sctx.beginPath();
-        sctx.moveTo(50, startY - 25);
-        sctx.lineTo(50, startY - 5);
-        sctx.stroke();
-        
-        sctx.beginPath();
-        sctx.moveTo(50, startY - 5);
-        sctx.lineTo(44, startY - 15);
-        sctx.lineTo(56, startY - 15);
-        sctx.closePath();
-        sctx.fillStyle = '#66bb6a';
-        sctx.fill();
-        
-        sctx.fillStyle = '#66bb6a';
-        sctx.font = "bold 13px monospace";
-        sctx.textAlign = 'center';
-        sctx.textBaseline = 'bottom';
-        sctx.fillText('SORTED', 50, startY - 32);
-      }
-    }
-    
-    if (scenario.stateCount) {
-      sctx.fillStyle = 'rgba(255,255,255,0.95)';
-      sctx.font = "bold 16px monospace";
+
+      // State B box (right)
+      const bx = margin * 2 + colW;
+      sctx.fillStyle = 'rgba(22,27,34,0.9)';
+      sctx.fillRect(bx, topY, colW, boxH);
+      sctx.strokeStyle = '#f08c3a';
+      sctx.lineWidth = 1.5;
+      sctx.strokeRect(bx, topY, colW, boxH);
+      sctx.fillStyle = '#f08c3a';
+      sctx.font = `bold ${fontSize + 1}px monospace`;
+      sctx.fillText(scenario.stateB.label, bx + 8, topY + 8);
+      sctx.fillStyle = 'rgba(255,255,255,0.8)';
+      sctx.font = `${fontSize}px monospace`;
+      scenario.stateB.tuples.forEach((t, i) => {
+        sctx.fillText(t, bx + 8, topY + 28 + i * (fontSize + 5));
+      });
+
+      // Arrow(s) from both boxes down to canonical result
+      const arrowStartY = topY + boxH + 6;
+      const arrowEndY = arrowStartY + 30;
+      const centerX = sWidth / 2;
+
+      sctx.strokeStyle = '#66bb6a';
+      sctx.lineWidth = 2.5;
+      // Left arrow
+      sctx.beginPath();
+      sctx.moveTo(margin + colW / 2, arrowStartY);
+      sctx.lineTo(centerX, arrowEndY);
+      sctx.stroke();
+      // Right arrow
+      sctx.beginPath();
+      sctx.moveTo(bx + colW / 2, arrowStartY);
+      sctx.lineTo(centerX, arrowEndY);
+      sctx.stroke();
+
+      // "sort within orbits" label
+      sctx.fillStyle = 'rgba(102,187,106,0.7)';
+      sctx.font = `${Math.max(8, fontSize - 1)}px monospace`;
+      sctx.textAlign = 'center';
+      sctx.fillText('sort within orbits', centerX, arrowStartY + 10);
+
+      // Result box
+      const resultY = arrowEndY + 8;
+      const resultH = 48;
+      const resultW = sWidth - margin * 4;
+      const resultX = margin * 2;
+      sctx.fillStyle = 'rgba(102,187,106,0.12)';
+      sctx.fillRect(resultX, resultY, resultW, resultH);
+      sctx.strokeStyle = '#66bb6a';
+      sctx.lineWidth = 2.5;
+      sctx.strokeRect(resultX, resultY, resultW, resultH);
+
+      // Equals sign
+      sctx.fillStyle = '#66bb6a';
+      sctx.font = `bold ${fontSize + 6}px monospace`;
       sctx.textAlign = 'center';
       sctx.textBaseline = 'middle';
-      sctx.fillText(scenario.stateCount, sWidth / 2, 200);
-      
-      sctx.strokeStyle = '#66bb6a';
-      sctx.lineWidth = 5;
-      sctx.beginPath();
-      sctx.moveTo(sWidth / 2, 230);
-      sctx.lineTo(sWidth / 2, 280);
-      sctx.stroke();
-      
-      sctx.beginPath();
-      sctx.moveTo(sWidth / 2, 280);
-      sctx.lineTo(sWidth / 2 - 12, 265);
-      sctx.lineTo(sWidth / 2 + 12, 265);
-      sctx.closePath();
+      sctx.fillText('≡  IDENTICAL CANONICAL KEY  ≡', centerX, resultY + 14);
+
+      sctx.fillStyle = '#c8e6c9';
+      sctx.font = `${Math.max(8, fontSize - 1)}px monospace`;
+      sctx.fillText(scenario.canonicalResult, centerX, resultY + 34);
+
+      // Big verdict
+      const verdictY = resultY + resultH + 14;
       sctx.fillStyle = '#66bb6a';
-      sctx.fill();
-      
-      sctx.fillStyle = '#66bb6a';
-      sctx.font = "bold 16px monospace";
-      sctx.fillText(scenario.quotientCount, sWidth / 2, 315);
+      sctx.font = `bold ${fontSize + 4}px monospace`;
+      sctx.fillText('State 1 and State 2 are the SAME quotient state!', centerX, verdictY);
+      sctx.fillStyle = 'rgba(255,255,255,0.45)';
+      sctx.font = `${Math.max(8, fontSize - 1)}px monospace`;
+      sctx.fillText('Verification only needs to check ONE of them.', centerX, verdictY + 18);
     }
-    
+
+    // ── State space reduction table (step 9) ──
+    if (scenario.showReduction && scenario.reductionData) {
+      const rd = scenario.reductionData;
+      const fontSize = Math.max(9, Math.floor(sWidth * 0.017));
+      const topY = headerH + 10;
+      const tableX = margin * 2;
+      const tableW = sWidth - margin * 4;
+      const rowH = Math.min(28, (sHeight - topY - 80) / (rd.examples.length + 2));
+      const cols = [0, 0.14, 0.38, 0.68, 0.87];
+
+      // Table header
+      sctx.fillStyle = 'rgba(49,130,206,0.15)';
+      sctx.fillRect(tableX, topY, tableW, rowH);
+      sctx.strokeStyle = 'rgba(255,255,255,0.15)';
+      sctx.lineWidth = 1;
+      sctx.strokeRect(tableX, topY, tableW, rowH);
+
+      const headers = ['#', 'Agents', 'Roles', 'Labeled States', 'Quotient'];
+      sctx.fillStyle = '#58a6ff';
+      sctx.font = `bold ${fontSize}px monospace`;
+      sctx.textAlign = 'left';
+      sctx.textBaseline = 'middle';
+      headers.forEach((h, i) => {
+        sctx.fillText(h, tableX + cols[i] * tableW + 8, topY + rowH / 2);
+      });
+
+      // Table rows
+      rd.examples.forEach((row, ri) => {
+        const ry = topY + (ri + 1) * rowH;
+        const isEven = ri % 2 === 0;
+        sctx.fillStyle = isEven ? 'rgba(22,27,34,0.6)' : 'rgba(22,27,34,0.3)';
+        sctx.fillRect(tableX, ry, tableW, rowH);
+        sctx.strokeStyle = 'rgba(255,255,255,0.06)';
+        sctx.strokeRect(tableX, ry, tableW, rowH);
+
+        const values = [String(row.agents), row.roles, row.perms, row.quotient];
+        const colColors = ['#e0e0e0', '#e0e0e0', '#ef9a9a', '#66bb6a'];
+        values.forEach((val, ci) => {
+          sctx.fillStyle = colColors[ci];
+          sctx.font = `${ci >= 2 ? 'bold ' : ''}${fontSize}px monospace`;
+          sctx.textAlign = 'left';
+          sctx.textBaseline = 'middle';
+          sctx.fillText(val, tableX + cols[ci + 1] * tableW + 8, ry + rowH / 2);
+        });
+
+        // Row number
+        sctx.fillStyle = 'rgba(255,255,255,0.4)';
+        sctx.font = `${fontSize}px monospace`;
+        sctx.fillText(String(ri + 1), tableX + 8, ry + rowH / 2);
+      });
+
+      // Savings bar chart
+      const chartY = topY + (rd.examples.length + 1.5) * rowH + 10;
+      const chartH = sHeight - chartY - margin - 20;
+      if (chartH > 30) {
+        const barW = Math.min(60, (tableW - 60) / rd.examples.length);
+        const maxPerms = 14400;
+
+        sctx.fillStyle = 'rgba(255,255,255,0.6)';
+        sctx.font = `bold ${Math.max(9, fontSize - 1)}px monospace`;
+        sctx.textAlign = 'center';
+        sctx.textBaseline = 'bottom';
+        sctx.fillText('Labeled states (red) vs Quotient states (green)', sWidth / 2, chartY - 2);
+
+        rd.examples.forEach((row, i) => {
+          const bx = tableX + 30 + i * (barW + 12);
+          const permVal = parseInt(row.perms.split('=').pop().trim()) || 1;
+          const barHeight = Math.max(4, (permVal / maxPerms) * (chartH - 20));
+          const redH = Math.min(barHeight, chartH - 20);
+
+          // Red bar (labeled states)
+          sctx.fillStyle = 'rgba(239,83,80,0.65)';
+          sctx.fillRect(bx, chartY + chartH - 20 - redH, barW * 0.45, redH);
+
+          // Green bar (quotient = always 1, fixed small height)
+          const greenH = Math.max(4, (chartH - 20) * 0.04);
+          sctx.fillStyle = 'rgba(102,187,106,0.8)';
+          sctx.fillRect(bx + barW * 0.5, chartY + chartH - 20 - greenH, barW * 0.45, greenH);
+
+          // Agent count label
+          sctx.fillStyle = 'rgba(255,255,255,0.6)';
+          sctx.font = `${Math.max(7, fontSize - 2)}px monospace`;
+          sctx.textAlign = 'center';
+          sctx.textBaseline = 'top';
+          sctx.fillText(`${row.agents}`, bx + barW / 2, chartY + chartH - 16);
+        });
+      }
+    }
+
     if (symmetryCaption) {
       symmetryCaption.textContent = scenario.caption;
     }
   }
   
-  function sRenderQuotient() {
-    sctx.clearRect(0, 0, sWidth, sHeight);
-    sctx.fillStyle = "#0f1318";
-    sctx.fillRect(0, 0, sWidth, sHeight);
-    
-    sDrawGrid();
-    
-    const scenarioIndex = sTickCount % quotientComparisonScenarios.length;
-    const scenario = quotientComparisonScenarios[scenarioIndex];
-    
-    scenario.agents.forEach((agent) => {
-      const p = sToCell(agent.x, agent.y);
-      
-      sctx.fillStyle = "#4fc3f7";
-      sctx.beginPath();
-      sctx.arc(p.x + scell/2, p.y + scell/2, getSAgentRadius(), 0, Math.PI * 2);
-      sctx.fill();
-      
-      sctx.fillStyle = "#fff";
-      sctx.font = "bold 12px monospace";
-      sctx.textAlign = 'center';
-      sctx.textBaseline = 'middle';
-      sctx.fillText(agent.id, p.x + scell/2, p.y + scell/2);
-    });
-    
-    if (symmetryCaption) {
-      symmetryCaption.textContent = scenario.caption;
-    }
-  }
-
   function sRenderQuotientKey() {
     sctx.clearRect(0, 0, sWidth, sHeight);
     sctx.fillStyle = "#0f1318";
@@ -2443,8 +2794,6 @@ if (symmetryCanvas) {
     }
     if (sMode === "symmetry") {
       sRenderSymmetry();
-    } else if (sMode === "quotient") {
-      sRenderQuotient();
     } else if (sMode === "quotient-key") {
       sRenderQuotientKey();
     }
@@ -2454,11 +2803,10 @@ if (symmetryCanvas) {
     if (!sLastTick) sLastTick = ts;
     const elapsed = ts - sLastTick;
     
-    const delay = sMode === "symmetry" ? 6000 : (sMode === "quotient-key" ? 4200 : 3500);
+    const delay = sMode === "symmetry" ? 5000 : (sMode === "quotient-key" ? 4200 : 3500);
     
     if (sPlaying && elapsed > delay) {
-      let maxTick = quotientComparisonScenarios.length;
-      if (sMode === "symmetry") maxTick = symmetryScenarios.length;
+      let maxTick = symmetryScenarios.length;
       if (sMode === "quotient-key") maxTick = quotientKeyScenarios.length;
       sTickCount = (sTickCount + 1) % maxTick;
       sLastTick = ts;
